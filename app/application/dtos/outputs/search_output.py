@@ -10,23 +10,13 @@ class Artist(BaseModel):
     name: str
     id: str
 
-class Album(BaseModel):
-    name: str
-    id: Optional[str] = None
-    
-class Song(BaseModel):
-    category: Optional[str]
-    resultType: str
+class SearchOutput(BaseModel):
     title: str
-    album: Optional[Album]
-    inLibrary: bool
-    pinnedToListenAgain: bool
-    videoId: str
-    videoType: str
-    duration: Optional[str]
-    year: Optional[str]
-    artists: List[Artist]
-    duration_seconds: Optional[int]
-    views: Optional[str]
-    isExplicit: Optional[bool]
-    thumbnails: List[Thumbnail]
+    id: str
+    thumbnail: List[Thumbnail]
+    year: Optional[str] = None
+    duration: Optional[str] = None
+    duration_seconds: Optional[int] = None
+    artists: Optional[List[Artist]] = None
+    
+    
