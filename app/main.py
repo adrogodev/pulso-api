@@ -1,14 +1,20 @@
 from fastapi import FastAPI
-from app.adapters.api.search_controller import router as search_router
-from app.adapters.api.album_controller import router as album_router
+from app.infrastructure.config.config_infrastructure import config_infrastructure
+from app.application.config.config_application import config_application
+from app.api.config.config_api import config_api
+from app.api.routes.api_router import api_router
 
-app = FastAPI(title="RythmX Backend")
+
+app = FastAPI(title="rythmx")
 
 @app.get("/")
 def root():
-    return {"message": "Hello desde Python con FastAPI"}
+    return {"message": "rythmx api running..."}
+
+config_infrastructure()
+config_application()
+config_api()
 
 # Registrar routers
-app.include_router(search_router)
-app.include_router(album_router)
+app.include_router(api_router)
 

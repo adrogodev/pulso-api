@@ -1,0 +1,15 @@
+from ioc.container import Container
+from app.infrastructure.services.ytmusic.services.album_service import AlbumService
+from ytmusicapi import YTMusic
+
+def config_infrastructure():
+
+    # Registrar clientes
+    # YTMusic client
+    Container.register('ytmusic_client', lambda: YTMusic(), singleton=True)
+    
+    # Registrar servicios
+    Container.register('album_service', lambda: AlbumService(Container.resolve('ytmusic_client')), singleton=True)
+
+    
+    
