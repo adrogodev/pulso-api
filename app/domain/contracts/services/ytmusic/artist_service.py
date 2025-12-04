@@ -1,0 +1,3 @@
+class ISearchService:
+    def search(self, query: str) -> List[Artist]:
+        ...

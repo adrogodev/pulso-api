@@ -21,6 +21,7 @@ class GetAlbumResponseMapper:
        if not source:
            return None
        return source[0].url
+       
     @staticmethod
     def _to_track(source: YTMusicAlbumTrack) -> Track:
         return Track(

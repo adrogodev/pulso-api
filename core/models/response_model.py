@@ -8,9 +8,8 @@ class ResponseHttp(BaseModel, Generic[T]):
     message: str
     data: T | None
 
-
 class ResponseErrorHttp(BaseModel, Generic[T]):
     success: bool
     message: str
-    error: T | None    
+    error: T | None  
     

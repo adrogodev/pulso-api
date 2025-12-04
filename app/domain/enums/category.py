@@ -4,4 +4,3 @@ class Category(str, Enum):
     SONGS = "songs"
     ARTISTS = "artists"
     ALBUMS = "albums"
-    PLAYLISTS = "playlists"
