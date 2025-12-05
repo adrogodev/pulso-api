@@ -5,9 +5,10 @@ class SearchRequestMapper:
     @staticmethod
     def map(request: SearchInput) -> SearchRequest:
         return SearchRequest(
-                query=request.value,
-                filter=request.type.value,
+                query=request.query,
+                filter=None,
                 scope=None,
-                limit=request.limit,
+                # limit= (request.limit if request.limit is not None else 10),
+                limit= (request.limit or 10),
                 ignore_spelling=False
         )

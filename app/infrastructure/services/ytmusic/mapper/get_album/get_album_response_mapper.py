@@ -1,11 +1,11 @@
 from app.infrastructure.services.ytmusic.objects.common.artist import YTMusicArtist
-from app.domain.models.common.artist import Artist
+from app.domain.models.common.artist import CommonArtist as Artist
 from app.infrastructure.services.ytmusic.objects.common.thumbnail import YTMusicThumbnail
-from app.domain.models.common.thumbnail import Thumbnail
+from app.domain.models.common.thumbnail import CommonThumbnail as Thumbnail
 from app.infrastructure.services.ytmusic.objects.album.get_album_response import AlbumTrack as YTMusicAlbumTrack
-from app.domain.models.common.track import Track 
+from app.domain.models.common.track import CommonTrack as Track 
 from app.infrastructure.services.ytmusic.objects.album.get_album_response import GetAlbumResponse
-from app.domain.models.common.album import Album
+from app.domain.models.common.album import CommonAlbum as Album
 
 
 class GetAlbumResponseMapper:

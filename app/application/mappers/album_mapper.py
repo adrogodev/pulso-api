@@ -1,6 +1,6 @@
-from app.services.ytmusic.objects.albums.responses.get_album_data_response import Artist as SourceArtist
+from app.services.ytmusic.objects.albums.responses.get_album_data_response import CommonArtist as SourceArtist
 from app.application.dtos.outputs.album_output import Artist
-from app.services.ytmusic.objects.albums.responses.get_album_data_response import Thumbnail as SourceThumbnail
+from app.services.ytmusic.objects.albums.responses.get_album_data_response import CommonThumbnail as SourceThumbnail
 from app.application.dtos.outputs.album_output import Thumbnail
 from app.services.ytmusic.objects.albums.responses.get_album_data_response import AlbumTrack as SourceAlbumTrack
 from app.application.dtos.outputs.album_output import TrackOutput

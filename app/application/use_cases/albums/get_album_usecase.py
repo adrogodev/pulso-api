@@ -1,4 +1,4 @@
-from app.domain.models.common.album import Album
+from app.domain.models.common.album import CommonAlbum as Album
 from app.domain.contracts.services.ytmusic.album_service import IAlbumService
 from core.contracts.usecase_contract import UseCaseContract, UseCaseArgs
 

@@ -1,6 +1,6 @@
 from app.application.use_cases.albums.get_album_usecase import GetAlbumUseCase
 from core.contracts.usecase_contract import UseCaseArgs
-from app.domain.models.common.album import Album
+from app.domain.models.common.album import CommonAlbum as Album
 from core.contracts.controller_contract import ControllerContract
 from typing import Any
 from core.models.response_model import ResponseHttp
