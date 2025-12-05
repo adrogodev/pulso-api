@@ -10,7 +10,7 @@ class Search (BaseModel):
     description: Optional[str] = None
     duration: str | None = None
     duration_seconds: int | None = None
-    artist: Optional[List[Artist] | str | None] = None
+    artists:  str | None = None
     
 
     

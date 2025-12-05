@@ -10,13 +10,15 @@ from app.domain.enums.category import Category
 class SearchResponseMapper:
 
     @staticmethod
-    def _to_artist(data: YTMusicArtist) -> Artist:
+    def _to_artist(data: List[YTMusicArtist]) -> str:
         if not data:
-            return None            
-        return Artist(
-            id=data.id,
-            name=data.name
-        )
+            return None
+        names = [artist.name for artist in data if artist]
+
+        if len(names) == 1:
+            return names[0]
+        
+        return ', '.join(names)
     
     @staticmethod
     def _to_thumbnail(data:List[YTMusicThumbnail]) -> str:
@@ -28,6 +30,19 @@ class SearchResponseMapper:
     def map(category:str,data: List[SearchResponse]) -> List[Search]:
         mapped = []
         for item in data:
+
+            if category == Category.SONGS.value:
+                mapped.append(
+                Search(
+                    id=item.videoId,
+                    title=item.title,
+                    thumbnail=SearchResponseMapper._to_thumbnail(item.thumbnails),
+                    duration=item.duration,
+                    duration_seconds=item.duration_seconds,
+                    artists=SearchResponseMapper._to_artist(item.artists)
+                )
+            )
+            
             if category == Category.ARTISTS.value:
                 mapped.append(
                 Search(
@@ -35,28 +50,17 @@ class SearchResponseMapper:
                     name=item.artist,
                     thumbnail=SearchResponseMapper._to_thumbnail(item.thumbnails)
                 )
-            )
+            )     
             
-            continue
-            
-            artist_list = []
-            if item.artist:
-                yt_artist = YTMusicArtist(
-                id=item.browseId,
-                name=item.artist
-            )
-                artist_list = [SearchResponseMapper._to_artist(yt_artist)]
-
-            mapped.append(
+            if category == Category.ALBUMS.value:
+                mapped.append(
                 Search(
                     id=item.browseId,
-                    name=item.artist,
-                    title= None,
+                    title=item.title,
                     thumbnail=SearchResponseMapper._to_thumbnail(item.thumbnails),
-                    description= None,
-                    duration= None,
-                    duration_seconds= None,
-                    artist=artist_list,
+                    duration=item.duration,
+                    duration_seconds=item.duration_seconds,
+                    artists=SearchResponseMapper._to_artist(item.artists)
                 )
             )
 
