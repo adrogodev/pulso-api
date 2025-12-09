@@ -4,3 +4,4 @@ typing
 uvicorn[standard]
 python-dotenv
 ytmusicapi
+scalar-fastapi
