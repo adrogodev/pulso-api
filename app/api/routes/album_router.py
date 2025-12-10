@@ -4,6 +4,7 @@ from core.contracts.usecase_contract import UseCaseArgs
 from core.models.response_model import ResponseHttp
 from app.domain.models.ytmusic.album import Album
 from fastapi import APIRouter, Depends, Request
+from fastapi.responses import JSONResponse
 
 router = APIRouter(prefix="/api/album", tags=["Albums"])
 
@@ -11,4 +12,8 @@ router = APIRouter(prefix="/api/album", tags=["Albums"])
 async def get_album(album_id: str):
     # Obtener controlador del factory
     controller = get_album_controller()
-    return await controller.execute(album_id)
+    response = await controller.execute(album_id)
+
+    return JSONResponse(
+        content=response.model_dump(exclude_none=True)
+    )

@@ -1,11 +1,10 @@
 from app.infrastructure.services.ytmusic.objects.common.artist import YTMusicArtist
-from app.domain.models.common.artist import CommonArtist as Artist
+from app.domain.models.ytmusic.artist import Artist
 from app.infrastructure.services.ytmusic.objects.common.thumbnail import YTMusicThumbnail
-from app.domain.models.common.thumbnail import CommonThumbnail as Thumbnail
 from app.infrastructure.services.ytmusic.objects.album.get_album_response import AlbumTrack as YTMusicAlbumTrack
-from app.domain.models.common.track import CommonTrack as Track 
+from app.domain.models.ytmusic.song import Song as Track 
 from app.infrastructure.services.ytmusic.objects.album.get_album_response import GetAlbumResponse
-from app.domain.models.common.album import CommonAlbum as Album
+from app.domain.models.ytmusic.album import Album
 
 
 class GetAlbumResponseMapper:
@@ -29,22 +28,20 @@ class GetAlbumResponseMapper:
             title=source.title,
             duration=source.duration,
             duration_seconds=source.duration_seconds,
-            track_number=source.trackNumber,
-            artists=[GetAlbumResponseMapper._to_artist(a) for a in source.artists],
-            thumbnails=GetAlbumResponseMapper._to_thumbnail(source.thumbnails),
+            # track_number=source.trackNumber,
+            # thumbnail=GetAlbumResponseMapper._to_thumbnail(source.thumbnails),
         )
 
     @staticmethod
     def map(data: GetAlbumResponse) -> Album:
         return Album(
             title=data.title,
-            year=data.year,
             description=data.description,
-            thumbnails=GetAlbumResponseMapper._to_thumbnail(data.thumbnails),
-            artists=[GetAlbumResponseMapper._to_artist(a) for a in data.artists],
-            track_count=data.trackCount,
+            thumbnail=GetAlbumResponseMapper._to_thumbnail(data.thumbnails),
             duration=data.duration,
             duration_seconds=data.duration_seconds,
-            audio_playlist_id=data.audioPlaylistId,
-            tracks=[GetAlbumResponseMapper._to_track(t) for t in data.tracks]
+            year=data.year,
+            artists=[GetAlbumResponseMapper._to_artist(a) for a in data.artists],
+            songs_count=data.trackCount,
+            songs=[GetAlbumResponseMapper._to_track(t) for t in data.tracks]
         )

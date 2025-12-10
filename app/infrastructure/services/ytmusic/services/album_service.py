@@ -1,7 +1,7 @@
 from app.infrastructure.services.ytmusic.mapper.get_album.get_album_response_mapper import GetAlbumResponseMapper
 from app.infrastructure.services.ytmusic.objects.album.get_album_response import GetAlbumResponse
 from app.domain.contracts.services.ytmusic.album_service import IAlbumService
-from app.domain.models.common.album import CommonAlbum as Album
+from app.domain.models.ytmusic.album import Album
 from ytmusicapi import YTMusic
 from typing import Optional
 

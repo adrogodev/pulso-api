@@ -9,8 +9,8 @@ class Album(BaseModel):
     duration: Optional[str] = None
     duration_seconds: Optional[int] = None
     year: Optional[str] = None
-
     artists: List["Artist"] = Field(default_factory=list)
+    songs_count: Optional[int] = None
     songs: List["Song"] = Field(default_factory=list)
 
     class Config:
