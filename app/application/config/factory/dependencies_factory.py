@@ -5,3 +5,6 @@ def search_usecase():
 
 def get_album_usecase():
     return Container.resolve('get_album_usecase')
+
+def get_artist_usecase():
+    return Container.resolve('get_artist_usecase')

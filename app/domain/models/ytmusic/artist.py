@@ -4,9 +4,9 @@ from pydantic import BaseModel, Field
 class Artist(BaseModel):
     id: Optional[str] = None
     name: str
-    subscribers: Optional[int] = None
+    subscribers: Optional[str] = None
     description: Optional[str] = None
-    views: Optional[int] = None
+    views: Optional[str] = None
     thumbnail: Optional[str] = None
 
     count_songs: Optional[int] = None

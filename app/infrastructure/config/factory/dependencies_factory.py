@@ -5,3 +5,6 @@ def search_service():
 
 def get_album_service():
     return Container.resolve('ytmusic_client')
+
+def artist_service():
+    return Container.resolve('ytmusic_client')
