@@ -8,3 +8,6 @@ def get_album_usecase():
 
 def get_artist_usecase():
     return Container.resolve('get_artist_usecase')
+
+def get_link_songs_usecase():
+    return Container.resolve('get_link_songs_usecase')
