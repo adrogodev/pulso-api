@@ -8,6 +8,7 @@ from app.domain.models.ytmusic.song import Song
 from app.domain.models.ytmusic.album import Album
 from app.domain.models.ytmusic.artist import Artist
 from app.domain.models.ytmusic.search import Search
+from fastapi.middleware.cors import CORSMiddleware
 
 app = FastAPI(title="Rythmx API", docs_url=None, redoc_url=None)
 
@@ -31,5 +32,15 @@ config_api()
 
 # Registrar routers
 app.include_router(api_router)
+
+origins = ["*"]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
