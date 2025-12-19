@@ -30,6 +30,7 @@ class ArtistService(IArtistService):
             #     songs.append(song)
 
             return GetArtistResponseMapper.map(data)
+            # print(data)
 
         except Exception as e:
             print(f"Error en get_artist: {e}")

@@ -36,8 +36,8 @@ class AlbumResult(BaseModel):
 
 class AlbumsSection(BaseModel):
     results: List[AlbumResult]
-    browseId: Optional[str]
-    params: Optional[str]
+    browseId: Optional[str] = None
+    params: Optional[str] = None
 
 class GetArtistResponse(BaseModel):
     description: Optional[str] = None

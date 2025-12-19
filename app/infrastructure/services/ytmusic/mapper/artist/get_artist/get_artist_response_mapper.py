@@ -13,7 +13,7 @@ class GetArtistResponseMapper:
     def _to_thumbnail(source: YTMusicThumbnail) -> str:
        if not source:
            return None
-       return source[0].url
+       return source[0].url.split("=")[0]
 
     @staticmethod
     def _to_artist(source: YTMusicArtist) -> Artist:
@@ -47,7 +47,7 @@ class GetArtistResponseMapper:
             subscribers=data.subscribers,
             description=data.description,
             views=data.views,
-            thumbnails=GetArtistResponseMapper._to_thumbnail(data.thumbnails),
+            thumbnail=GetArtistResponseMapper._to_thumbnail(data.thumbnails),
             count_albums=len(data.albums.results),
             albums=[GetArtistResponseMapper._to_album(album) for album in data.albums.results],
             count_songs=len(data.songs.results),
