@@ -1,8 +1,0 @@
-fastapi
-pydantic
-pydantic-settings
-typing
-uvicorn[standard]
-python-dotenv
-ytmusicapi
-scalar-fastapi

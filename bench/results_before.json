@@ -1,0 +1,29 @@
+[
+  {
+    "scenario": "search",
+    "first_ms": 567.5,
+    "p50_ms": 5524.6,
+    "p95_ms": 6077.9,
+    "p99_ms": 6635.6,
+    "rps": 1.8,
+    "errors": 0
+  },
+  {
+    "scenario": "album",
+    "first_ms": 555.0,
+    "p50_ms": 5519.2,
+    "p95_ms": 5522.7,
+    "p99_ms": 6076.7,
+    "rps": 1.8,
+    "errors": 0
+  },
+  {
+    "scenario": "artist",
+    "first_ms": 553.6,
+    "p50_ms": 5519.3,
+    "p95_ms": 5522.3,
+    "p99_ms": 6074.3,
+    "rps": 1.8,
+    "errors": 0
+  }
+]

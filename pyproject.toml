@@ -1,0 +1,37 @@
+[project]
+name = "rythmx-api"
+version = "0.2.0"
+description = "Rythmx API: a FastAPI layer over YouTube Music with an audio streaming proxy"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.162",
+    "pydantic>=2.14",
+    "pydantic-settings>=2.12",
+    "uvicorn[standard]>=0.54",
+    "httpx[http2]>=0.28.1",
+    "anyio>=4.16",
+    "cachetools>=7.2",
+    "ytmusicapi>=1.12.3",
+    "yt-dlp[default,deno]>=2026.10.26",
+    "scalar-fastapi>=1.5",
+    "truststore>=0.10",
+]
+
+[project.optional-dependencies]
+redis = ["redis>=8.1"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.2",
+    "pytest-asyncio>=1.4",
+]
+
+[tool.uv]
+package = false
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
+testpaths = ["tests"]
+pythonpath = ["."]
