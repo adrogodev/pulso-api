@@ -117,6 +117,9 @@ Behind a corporate proxy that inspects TLS, set `USE_SYSTEM_TRUSTSTORE=true` (an
 | `STREAM_PREFETCH_MAX_IDS` | `50` | Maximum ids per `/api/stream/prefetch` request (400 `TOO_MANY_IDS` above it) |
 | `YTDLP_MAX_CONCURRENCY` | `4` | Concurrent yt-dlp resolutions |
 | `YTDLP_JS_RUNTIME` | `deno` | `deno`, `node`, `bun` or `quickjs` |
+| `YTDLP_COOKIES_FILE` | empty | Path to a Netscape `cookies.txt` of a YouTube account (see [YouTube bot check on servers](#youtube-bot-check-on-servers)) |
+| `YTDLP_PROXY` | empty | Proxy URL for yt-dlp and for the audio proxy, e.g. `http://user:pass@host:port` |
+| `YTDLP_EXTRACTOR_ARGS` | empty | yt-dlp `--extractor-args` groups separated by spaces, e.g. `youtube:player_client=tv,web_safari` |
 | `HTTP_CONNECT_TIMEOUT` / `HTTP_READ_TIMEOUT` | `5` / `30` | Upstream audio timeouts (seconds) |
 | `HTTP_MAX_CONNECTIONS` / `HTTP_MAX_KEEPALIVE` / `HTTP_KEEPALIVE_EXPIRY` | `100` / `20` / `30` | Upstream connection pool |
 | `HTTP2_ENABLED` | `true` | HTTP/2 towards googlevideo |
@@ -415,6 +418,46 @@ docker compose logs -f api
 ```
 
 To update, change `IMAGE_TAG` if needed and run `docker compose pull && docker compose up -d` again.
+
+## YouTube bot check on servers
+
+From a datacenter IP (any VPS), YouTube often answers yt-dlp with "Sign in to confirm you're not a bot".
+The API then returns `503 UPSTREAM_BLOCKED` on `/api/stream/*` while search keeps working. It does not
+happen from a residential IP. Options, from simplest:
+
+1. **Cookies of a YouTube account** (`YTDLP_COOKIES_FILE`). Use a secondary account: it can be flagged.
+   - In a private browser window, sign in to youtube.com, export the cookies of that window in Netscape
+     format (for example with the "Get cookies.txt LOCALLY" extension) and close the window without signing
+     out. Closing it keeps YouTube from rotating the exported cookies.
+   - Mount the file read-only into the container and point `YTDLP_COOKIES_FILE` to it. Never commit it.
+   - Every extraction uses a private copy, so a read-only mount works. Cookies last weeks to months; when
+     `UPSTREAM_BLOCKED` comes back, export them again.
+2. **Another player client** (`YTDLP_EXTRACTOR_ARGS=youtube:player_client=tv,web_safari`). Free, but it may
+   stop working whenever YouTube changes its checks.
+3. **A residential proxy** (`YTDLP_PROXY`). The audio proxy uses it too, because googlevideo URLs only work
+   from the IP that resolved them. Paid, and every streamed byte goes through it.
+
+With a Dokploy compose service: **Advanced → Mounts → File Mount**, paste the content of `cookies.txt` with
+the file path `youtube-cookies.txt` (Dokploy stores it in `../files/`), mount it in the compose and set the
+variable in **Environment**, then redeploy:
+
+```yaml
+services:
+  api:
+    volumes:
+      - ../files/youtube-cookies.txt:/run/secrets/youtube-cookies.txt:ro
+```
+
+```dotenv
+YTDLP_COOKIES_FILE=/run/secrets/youtube-cookies.txt
+```
+
+With plain Docker:
+
+```bash
+docker run ... -v /opt/pulso-api/cookies.txt:/run/secrets/youtube-cookies.txt:ro \
+  -e YTDLP_COOKIES_FILE=/run/secrets/youtube-cookies.txt ghcr.io/adrogodev/pulso-api:latest
+```
 
 ## Legal notice
 

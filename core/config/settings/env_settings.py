@@ -46,6 +46,13 @@ class EnvSettings(BaseSettings):
     STREAM_PREFETCH_MAX_IDS: int = 50
     YTDLP_MAX_CONCURRENCY: int = 4
     YTDLP_JS_RUNTIME: str = "deno"
+    # Getting past YouTube's bot check from datacenter IPs (all optional)
+    # Netscape cookies.txt of a YouTube account, mounted as a secret (never committed)
+    YTDLP_COOKIES_FILE: str = ""
+    # Proxy for yt-dlp and for the audio proxy (googlevideo URLs are bound to the resolving IP)
+    YTDLP_PROXY: str = ""
+    # yt-dlp --extractor-args groups separated by spaces, e.g. "youtube:player_client=tv,web_safari"
+    YTDLP_EXTRACTOR_ARGS: str = ""
 
     # Outgoing HTTP client (audio proxy)
     HTTP_CONNECT_TIMEOUT: float = 5.0

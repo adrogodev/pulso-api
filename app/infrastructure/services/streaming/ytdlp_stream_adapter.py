@@ -1,6 +1,9 @@
+import contextlib
 import logging
+import os
+import tempfile
 import time
-from typing import Any, Callable, Dict, Optional
+from typing import Any, Callable, Dict, Iterator, Optional
 from urllib.parse import parse_qs, urlparse
 
 import anyio
@@ -69,6 +72,42 @@ def _js_runtimes(runtime: str) -> Dict[str, Dict[str, str]]:
     return {runtime: config}
 
 
+def _parse_extractor_args(value: str) -> Dict[str, Dict[str, list]]:
+    """Parses `IE:key=v1,v2;key2=v` groups (yt-dlp --extractor-args syntax) separated by spaces."""
+    import yt_dlp
+
+    argv = []
+    for group in value.split():
+        if ":" not in group:
+            raise ValueError(f"YTDLP_EXTRACTOR_ARGS: expected 'extractor:key=value', got {group!r}")
+        argv += ["--extractor-args", group]
+    try:
+        return yt_dlp.parse_options(argv).ydl_opts["extractor_args"]
+    except (SystemExit, Exception) as e:
+        raise ValueError(f"YTDLP_EXTRACTOR_ARGS is invalid: {value!r}") from e
+
+
+def _read_cookies(path: str) -> bytes:
+    if not os.path.isfile(path):
+        raise ValueError(f"YTDLP_COOKIES_FILE does not exist: {path}")
+    with open(path, "rb") as f:
+        return f.read()
+
+
+@contextlib.contextmanager
+def _cookies_copy(content: bytes) -> Iterator[str]:
+    """yt-dlp rewrites its cookie file in place, which fails on a read-only secret mount and races between
+    concurrent extractions, so every extraction gets its own private copy."""
+    fd, path = tempfile.mkstemp(prefix="ytdlp-cookies-", suffix=".txt")
+    try:
+        with os.fdopen(fd, "wb") as f:
+            f.write(content)
+        yield path
+    finally:
+        with contextlib.suppress(OSError):
+            os.remove(path)
+
+
 class YtDlpStreamAdapter(AudioStreamProvider):
     """Resolves audio URLs with yt-dlp (as a library) in a bounded thread pool, without downloading."""
 
@@ -79,6 +118,9 @@ class YtDlpStreamAdapter(AudioStreamProvider):
         fallback_ttl_seconds: int,
         js_runtime: str = "deno",
         ydl_factory: Optional[Callable[[Dict[str, Any]], Any]] = None,
+        cookies_file: str = "",
+        proxy: str = "",
+        extractor_args: str = "",
     ):
         self._limiter = anyio.CapacityLimiter(max_concurrency)
         self._fallback_ttl = fallback_ttl_seconds
@@ -91,6 +133,12 @@ class YtDlpStreamAdapter(AudioStreamProvider):
             "noplaylist": True,
             "js_runtimes": _js_runtimes(js_runtime),
         }
+        # Datacenter IPs hit YouTube's "confirm you're not a bot" check; these options get past it
+        self._cookies = _read_cookies(cookies_file) if cookies_file else None
+        if proxy:
+            self._params["proxy"] = proxy
+        if extractor_args.strip():
+            self._params["extractor_args"] = _parse_extractor_args(extractor_args)
 
     async def resolve(self, video_id: str) -> StreamSource:
         started = time.perf_counter()
@@ -100,8 +148,12 @@ class YtDlpStreamAdapter(AudioStreamProvider):
 
     def _extract(self, video_id: str) -> Dict[str, Any]:
         try:
-            with self._ydl_factory(dict(self._params)) as ydl:
-                return ydl.extract_info(WATCH_URL + video_id, download=False)
+            with contextlib.ExitStack() as stack:
+                params = dict(self._params)
+                if self._cookies is not None:
+                    params["cookiefile"] = stack.enter_context(_cookies_copy(self._cookies))
+                with self._ydl_factory(params) as ydl:
+                    return ydl.extract_info(WATCH_URL + video_id, download=False)
         except DomainError:
             raise
         except Exception as e:

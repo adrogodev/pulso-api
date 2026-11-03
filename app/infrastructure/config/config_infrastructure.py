@@ -48,6 +48,7 @@ def config_infrastructure(settings: EnvSettings):
             max_connections=settings.HTTP_MAX_CONNECTIONS,
             max_keepalive=settings.HTTP_MAX_KEEPALIVE,
             keepalive_expiry=settings.HTTP_KEEPALIVE_EXPIRY,
+            proxy=settings.YTDLP_PROXY,
         ),
         singleton=True,
     )
@@ -68,6 +69,9 @@ def config_infrastructure(settings: EnvSettings):
             fallback_ttl_seconds=settings.STREAM_FALLBACK_TTL_SECONDS,
             js_runtime=settings.YTDLP_JS_RUNTIME,
             ydl_factory=Container.resolve('ytdlp_factory') if Container.is_registered('ytdlp_factory') else None,
+            cookies_file=settings.YTDLP_COOKIES_FILE,
+            proxy=settings.YTDLP_PROXY,
+            extractor_args=settings.YTDLP_EXTRACTOR_ARGS,
         ),
         singleton=True,
     )

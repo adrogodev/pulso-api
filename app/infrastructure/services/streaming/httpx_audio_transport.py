@@ -23,9 +23,11 @@ def build_http_client(
     max_keepalive: int,
     keepalive_expiry: float,
     transport: Optional[httpx.AsyncBaseTransport] = None,
+    proxy: Optional[str] = None,
 ) -> httpx.AsyncClient:
     return httpx.AsyncClient(
         http2=http2,
+        proxy=proxy or None,
         follow_redirects=True,
         timeout=httpx.Timeout(connect=connect_timeout, read=read_timeout, write=10.0, pool=5.0),
         limits=httpx.Limits(
