@@ -12,7 +12,7 @@ from starlette.types import ASGIApp, Message, Receive, Scope, Send
 
 from app.api.http.errors import error_response
 
-logger = logging.getLogger("rythmx.http")
+logger = logging.getLogger("pulso.http")
 
 
 class TimingMiddleware:

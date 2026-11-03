@@ -8,7 +8,7 @@ from app.domain.contracts.streaming import AudioTransport, UpstreamAudio
 from app.domain.errors import UpstreamTimeoutError, UpstreamUnavailableError
 from app.domain.models.stream import StreamSource
 
-logger = logging.getLogger("rythmx.stream")
+logger = logging.getLogger("pulso.stream")
 
 _SINGLE_RANGE_RE = re.compile(r"^bytes=(\d+)-(\d*)$")
 _CONTENT_RANGE_RE = re.compile(r"^bytes (\d+)-(\d+)/(\d+)$")

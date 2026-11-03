@@ -10,7 +10,7 @@ from app.domain.errors import UpstreamBlockedError, UpstreamUnavailableError
 from app.domain.models.stream import StreamSource
 from core.contracts.usecase_contract import UseCaseArgs, UseCaseContract
 
-logger = logging.getLogger("rythmx.stream")
+logger = logging.getLogger("pulso.stream")
 
 FORBIDDEN = 403
 GONE = 410

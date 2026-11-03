@@ -18,7 +18,7 @@ from app.domain.errors import (
 )
 from core.models.response_model import ErrorDetail, ResponseErrorHttp
 
-logger = logging.getLogger("rythmx.errors")
+logger = logging.getLogger("pulso.errors")
 
 STATUS_BY_ERROR: dict[type[DomainError], int] = {
     InvalidInputError: 400,

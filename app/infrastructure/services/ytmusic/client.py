@@ -14,7 +14,7 @@ from app.domain.errors import (
     UpstreamUnavailableError,
 )
 
-logger = logging.getLogger("rythmx.ytmusic")
+logger = logging.getLogger("pulso.ytmusic")
 
 
 class TimeoutSession(requests.Session):

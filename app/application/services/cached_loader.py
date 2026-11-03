@@ -6,7 +6,7 @@ from pydantic import BaseModel
 from app.domain.contracts.cache_port import CachePort
 from core.concurrency.single_flight import SingleFlight
 
-logger = logging.getLogger("rythmx.cache")
+logger = logging.getLogger("pulso.cache")
 
 M = TypeVar("M", bound=BaseModel)
 Ttl = Union[float, Callable[[M], float]]

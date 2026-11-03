@@ -4,7 +4,7 @@ STREAM_BASE = "http://testserver/api/stream/"
 async def test_root_health(client):
     resp = await client.get("/")
     assert resp.status_code == 200
-    assert resp.json() == {"message": "rythmx api running..."}
+    assert resp.json() == {"message": "pulso api running..."}
 
 
 async def test_search_returns_all_categories_with_stream_urls(client, ytmusic):

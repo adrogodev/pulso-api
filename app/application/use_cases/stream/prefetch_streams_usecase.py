@@ -8,7 +8,7 @@ from app.domain.errors import DomainError, InvalidInputError
 from app.domain.models.stream import ensure_video_id
 from core.contracts.usecase_contract import UseCaseArgs, UseCaseContract
 
-logger = logging.getLogger("rythmx.stream")
+logger = logging.getLogger("pulso.stream")
 
 
 class PrefetchStreamsUseCase(UseCaseContract[List[str], PrefetchResult]):

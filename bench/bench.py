@@ -1,4 +1,4 @@
-"""Concurrent HTTP benchmark for Rythmx API.
+"""Concurrent HTTP benchmark for Pulso API.
 
 Usage:
     python bench/bench.py --base-url http://127.0.0.1:8000 -n 40 -c 10 [--out results.json]

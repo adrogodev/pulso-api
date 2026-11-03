@@ -17,7 +17,7 @@ from app.domain.errors import (
 )
 from app.domain.models.stream import StreamSource
 
-logger = logging.getLogger("rythmx.ytdlp")
+logger = logging.getLogger("pulso.ytdlp")
 
 WATCH_URL = "https://www.youtube.com/watch?v="
 

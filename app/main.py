@@ -16,7 +16,7 @@ from app.infrastructure.config.config_infrastructure import config_infrastructur
 from core.config.settings.env_settings import EnvSettings, get_settings
 from ioc.container import Container
 
-logger = logging.getLogger("rythmx")
+logger = logging.getLogger("pulso")
 
 
 @asynccontextmanager
@@ -48,7 +48,7 @@ def create_app(settings: Optional[EnvSettings] = None, overrides: Optional[Mappi
         Container.register_instance(key, instance)
 
     app = FastAPI(
-        title="Rythmx API",
+        title="Pulso API",
         version="0.2.0",
         description="YouTube Music catalog and audio streaming. The frontend only talks to this API.",
         docs_url=None,
@@ -64,7 +64,7 @@ def create_app(settings: Optional[EnvSettings] = None, overrides: Optional[Mappi
 
     @app.get("/", tags=["Health"])
     async def root():
-        return {"message": "rythmx api running..."}
+        return {"message": "pulso api running..."}
 
     register_exception_handlers(app)
     app.include_router(api_router)

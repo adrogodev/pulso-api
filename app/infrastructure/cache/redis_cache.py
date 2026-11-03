@@ -7,7 +7,7 @@ from app.domain.contracts.cache_port import CachePort
 class RedisCache(CachePort):
     """Shared cache for multi-worker deployments. Requires the `redis` extra."""
 
-    def __init__(self, url: str, prefix: str = "rythmx:"):
+    def __init__(self, url: str, prefix: str = "pulso:"):
         from redis.asyncio import Redis
 
         self._redis = Redis.from_url(url)
