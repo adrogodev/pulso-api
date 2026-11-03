@@ -52,6 +52,15 @@ def map_ytdlp_error(error: Exception) -> DomainError:
     return UpstreamUnavailableError("Could not resolve the audio stream")
 
 
+class _YtDlpLogger:
+    """Keeps yt-dlp's own output at DEBUG: the adapter already logs one WARNING per failed extraction."""
+
+    def debug(self, msg: str) -> None:
+        logger.debug(msg)
+
+    info = warning = error = debug
+
+
 def _default_ydl_factory() -> Callable[[Dict[str, Any]], Any]:
     import yt_dlp
 
@@ -132,6 +141,7 @@ class YtDlpStreamAdapter(AudioStreamProvider):
             "skip_download": True,
             "noplaylist": True,
             "js_runtimes": _js_runtimes(js_runtime),
+            "logger": _YtDlpLogger(),
         }
         # Datacenter IPs hit YouTube's "confirm you're not a bot" check; these options get past it
         self._cookies = _read_cookies(cookies_file) if cookies_file else None

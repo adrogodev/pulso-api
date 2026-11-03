@@ -1,5 +1,7 @@
 """yt-dlp options that get a datacenter IP past YouTube's bot check: cookies, proxy and extractor args."""
 
+import logging
+
 import pytest
 
 from app.infrastructure.services.streaming.httpx_audio_transport import build_http_client
@@ -59,6 +61,16 @@ async def test_extractor_args_use_the_ytdlp_cli_syntax(ydl):
         "youtube": {"player_client": ["tv", "web_safari"]},
         "youtubepot-bgutilhttp": {"base_url": ["http://bgutil:4416"]},
     }
+
+
+async def test_ytdlp_output_stays_at_debug(ydl, caplog):
+    await make_adapter(ydl).resolve(VIDEO_ID)
+    ytdlp_logger = ydl.last_params["logger"]
+    with caplog.at_level(logging.DEBUG):
+        ytdlp_logger.error("ERROR: [youtube] abc: Sign in to confirm you're not a bot.")
+        ytdlp_logger.warning("WARNING: [youtube] something odd")
+    # the adapter already logs one WARNING per failure, so yt-dlp's own lines would duplicate it
+    assert [r.levelno for r in caplog.records if r.name == "pulso.ytdlp"] == [logging.DEBUG, logging.DEBUG]
 
 
 def test_invalid_extractor_args_fail_at_startup(ydl):
