@@ -54,6 +54,9 @@ ioc/               dependency injection container
 tests/             pytest suite with fakes for YouTube Music, yt-dlp and googlevideo
 bench/             benchmark client and simulated upstream server
 odd/tasks/         feature log of the streaming and performance work
+deploy/            production docker-compose stack and Caddyfile
+.github/workflows/ CI: tests, Docker image build and VPS deployment
+Dockerfile         production image
 ```
 
 Each layer has a `config_*.py` that registers its dependencies in the container; `app/main.py` wires them
@@ -307,6 +310,99 @@ overhead; see the table above for measurements against real YouTube.
 
 Logs use the `pulso.*` logger names (`pulso.http`, `pulso.stream`, `pulso.ytdlp`, `pulso.ytmusic`,
 `pulso.cache`, `pulso.errors`). Redis keys use the `pulso:` prefix.
+
+## Deployment (Docker + GitHub Actions + VPS)
+
+```
+git push main ──> GitHub Actions: tests ──> Docker image ──> ghcr.io/adrogodev/pulso-api
+                                                                 │
+                VPS: docker compose pull && up -d  <── over SSH ──┘
+                Caddy (HTTPS) ──> api container :8000
+```
+
+The workflow `.github/workflows/deploy.yml` runs on every push and pull request to `main`:
+
+| Job | When | What |
+|---|---|---|
+| `test` | always | `uv sync --locked` and `uv run pytest` |
+| `image` | push to `main`, tag `v*.*.*`, manual run | Builds the `Dockerfile` and pushes it to GHCR as `latest` + `sha-<commit>` (tags add `X.Y.Z` and `X.Y`) |
+| `deploy` | push to `main`, only when the variable `DEPLOY_ENABLED=true` | Copies `deploy/` to the VPS and restarts the stack with the new `sha-<commit>` image |
+
+The image runs a single uvicorn worker with the in-memory cache; Redis is not required. Before scaling to
+several workers or containers, set `CACHE_BACKEND=redis` and add a Redis service.
+
+### 1. Prepare the VPS (once)
+
+Ubuntu/Debian x86_64 with ports 22, 80 and 443 open.
+
+```bash
+# as root
+curl -fsSL https://get.docker.com | sh
+adduser --disabled-password --gecos "" deploy
+usermod -aG docker deploy
+mkdir -p /opt/pulso-api && chown deploy:deploy /opt/pulso-api
+```
+
+Create the deploy key on your machine and authorize it on the VPS:
+
+```bash
+ssh-keygen -t ed25519 -f pulso_deploy -C "github-actions" -N ""
+ssh-copy-id -i pulso_deploy.pub deploy@<VPS_IP>
+ssh-keyscan -H <VPS_IP>          # output goes to the VPS_KNOWN_HOSTS secret
+```
+
+Create `/opt/pulso-api/.env` on the VPS from `.env.example`. At least:
+
+```dotenv
+API_DOMAIN=api.example.com              # or :80 to serve plain HTTP on the server IP
+PUBLIC_BASE_URL=https://api.example.com # http://<VPS_IP> without a domain
+CORS_ORIGINS=https://app.example.com    # browser frontends allowed to call the API
+CACHE_BACKEND=memory
+```
+
+With a domain, create a DNS `A` record pointing to the VPS IP before the first deployment: Caddy requests
+the Let's Encrypt certificate on start.
+
+### 2. Configure GitHub (once)
+
+In the repository, **Settings → Secrets and variables → Actions**:
+
+| Kind | Name | Value |
+|---|---|---|
+| Secret | `VPS_HOST` | VPS IP or hostname |
+| Secret | `VPS_USER` | `deploy` |
+| Secret | `VPS_SSH_KEY` | Contents of the private key `pulso_deploy` |
+| Secret | `VPS_KNOWN_HOSTS` | Output of `ssh-keyscan -H <VPS_IP>` |
+| Secret | `VPS_PORT` | Optional, SSH port when it is not 22 |
+| Variable | `DEPLOY_ENABLED` | `true` |
+
+The workflow logs in to GHCR with the built-in `GITHUB_TOKEN`, so the image can stay private.
+
+### 3. Deploy
+
+Push to `main` (or run the workflow manually from the **Actions** tab). Check it on the VPS:
+
+```bash
+cd /opt/pulso-api
+docker compose ps
+docker compose logs -f api
+curl https://api.example.com/
+```
+
+Roll back by restarting an older image: `IMAGE_TAG=sha-<commit> docker compose up -d`.
+
+### Releases
+
+Releases are optional: deployments follow `main`. To publish a versioned image, update `version` in
+`pyproject.toml` and `app/main.py`, run `uv lock`, commit, then tag and push:
+
+```bash
+git tag -a v0.0.1 -m "v0.0.1"
+git push origin v0.0.1
+```
+
+The workflow builds `ghcr.io/adrogodev/pulso-api:0.0.1` (and `0.0`). Create the GitHub release from that
+tag under **Releases → Draft a new release**.
 
 ## Legal notice
 
