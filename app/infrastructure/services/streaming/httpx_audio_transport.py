@@ -120,7 +120,8 @@ class WindowedUpstreamAudio(UpstreamAudio):
             if self._current.status_code != 206 or not got or int(got[1]) != start:
                 logger.warning("upstream window %s-%s answered %s", start, stop, self._current.status_code)
                 return
-            self._next = stop + 1
+            # continue after what upstream actually sent, which may be shorter than requested
+            self._next = int(got[2]) + 1
             async for chunk in self._relay(chunk_size):
                 yield chunk
 

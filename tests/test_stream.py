@@ -281,3 +281,12 @@ async def test_failing_later_window_ends_body_early_without_error(client, google
 async def test_multi_range_is_passed_through_untouched(client, googlevideo):
     await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=0-9, 20-29"})
     assert googlevideo.requests[0].headers["range"] == "bytes=0-9, 20-29"
+
+
+@pytest.mark.parametrize("settings_overrides", [{"STREAM_UPSTREAM_WINDOW_BYTES": WINDOW}])
+async def test_short_upstream_windows_never_skip_bytes(client, googlevideo):
+    # upstream may answer a 206 shorter than the window requested; the next window starts after it
+    googlevideo.max_response_bytes = 30_000
+    resp = await client.get("/api/stream/song_vid_01")
+    assert resp.status_code == 200
+    assert resp.content == AUDIO

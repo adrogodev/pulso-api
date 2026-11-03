@@ -110,6 +110,7 @@ class FakeGoogleVideo:
         self.transient_403_n: set[str] = set()  # first hit on these URLs answers 403
         self.gone_n: set[str] = set()
         self.forbid_from_byte: Optional[int] = None  # ranges starting at or after this offset answer 403
+        self.max_response_bytes: Optional[int] = None  # cap each 206 like a server that shortens ranges
         self._seen_n: set[str] = set()
         self.always_status: Optional[int] = None
         self.fail_after_bytes: Optional[int] = None
@@ -151,6 +152,8 @@ class FakeGoogleVideo:
         if start >= size:
             return httpx.Response(416, headers={"Content-Range": f"bytes */{size}"}, stream=httpx.ByteStream(b""))
         end = min(int(end_s) if end_s else size - 1, size - 1)
+        if self.max_response_bytes:
+            end = min(end, start + self.max_response_bytes - 1)
         body = AUDIO[start : end + 1]
         return httpx.Response(
             206,
