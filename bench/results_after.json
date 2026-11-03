@@ -1,0 +1,65 @@
+[
+  {
+    "scenario": "search",
+    "first_ms": 773.3,
+    "p50_ms": 43.5,
+    "p95_ms": 80.6,
+    "p99_ms": 85.3,
+    "rps": 191.5,
+    "errors": 0
+  },
+  {
+    "scenario": "album",
+    "first_ms": 305.7,
+    "p50_ms": 38.2,
+    "p95_ms": 98.1,
+    "p99_ms": 125.0,
+    "rps": 201.9,
+    "errors": 0
+  },
+  {
+    "scenario": "artist",
+    "first_ms": 312.0,
+    "p50_ms": 80.1,
+    "p95_ms": 135.8,
+    "p99_ms": 158.9,
+    "rps": 111.7,
+    "errors": 0
+  },
+  {
+    "scenario": "artist_path",
+    "first_ms": 3.3,
+    "p50_ms": 39.1,
+    "p95_ms": 76.6,
+    "p99_ms": 85.0,
+    "rps": 213.3,
+    "errors": 0
+  },
+  {
+    "scenario": "suggestions",
+    "first_ms": 306.5,
+    "p50_ms": 41.1,
+    "p95_ms": 76.8,
+    "p99_ms": 87.5,
+    "rps": 200.3,
+    "errors": 0
+  },
+  {
+    "scenario": "stream_info",
+    "first_ms": 814.4,
+    "p50_ms": 37.7,
+    "p95_ms": 68.6,
+    "p99_ms": 75.7,
+    "rps": 226.2,
+    "errors": 0
+  },
+  {
+    "scenario": "stream_ttfb",
+    "first_ms": 10.9,
+    "p50_ms": 57.2,
+    "p95_ms": 110.4,
+    "p99_ms": 157.7,
+    "rps": 125.5,
+    "errors": 0
+  }
+]
