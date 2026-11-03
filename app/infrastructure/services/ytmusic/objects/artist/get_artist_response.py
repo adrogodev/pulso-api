@@ -8,34 +8,35 @@ class AlbumInfo(BaseModel):
     id:Optional[str] = None
 
 class SongResult(BaseModel):
-    videoId: str
+    videoId: Optional[str] = None
     title: str
-    artists: List[Artist]
+    artists: List[Artist] = []
     album: Optional[AlbumInfo] = None
     likeStatus: Optional[str] = None
     inLibrary: Optional[bool] = None
     pinnedToListenAgain: Optional[bool] = None
-    thumbnails: List[Thumbnail]
+    thumbnails: List[Thumbnail] = []
     isAvailable: Optional[bool] = None
     isExplicit: Optional[bool] = None
     videoType: Optional[str] = None
     views: Optional[str] = None
 
 class SongsSection(BaseModel):
-    browseId: Optional[str]
-    results: List[SongResult]
+    browseId: Optional[str] = None
+    results: List[SongResult] = []
 
 class AlbumResult(BaseModel):
     title: str
-    type: str
-    artists: List[Artist]
-    browseId: Optional[str]
-    audioPlaylistId: Optional[str]
-    thumbnails: List[Thumbnail]
+    type: Optional[str] = None
+    year: Optional[str] = None
+    artists: List[Artist] = []
+    browseId: Optional[str] = None
+    audioPlaylistId: Optional[str] = None
+    thumbnails: List[Thumbnail] = []
     isExplicit: Optional[bool] = None
 
 class AlbumsSection(BaseModel):
-    results: List[AlbumResult]
+    results: List[AlbumResult] = []
     browseId: Optional[str] = None
     params: Optional[str] = None
 

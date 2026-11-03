@@ -7,7 +7,7 @@ class Thumbnail(BaseModel):
     height: Optional[int] = None
 
 class ArtistInfo(BaseModel):
-    name: str
+    name: Optional[str] = None
     id: Optional[str] = None
     thumbnails: Optional[List[Thumbnail]] = None
 
@@ -41,5 +41,4 @@ class SearchResponse(BaseModel):
     artist: Optional[str] = None
     subscribers: Optional[str] = None
 
-    # ¡NUEVO! Álbum de la canción
     album: Optional[AlbumInfo] = None

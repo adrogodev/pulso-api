@@ -1,30 +1,23 @@
-from app.infrastructure.services.ytmusic.mapper.search.search_request_mapper import SearchRequestMapper
+from typing import Optional
+
+from app.domain.contracts.services.ytmusic.search_service import ISearchService
+from app.domain.enums.category import Category
+from app.domain.models.ytmusic.search import Search
+from app.infrastructure.services.ytmusic.client import YTMusicGateway
 from app.infrastructure.services.ytmusic.mapper.search.search_response_mapper import SearchResponseMapper
 from app.infrastructure.services.ytmusic.objects.search.search_response import SearchResponse
-from app.domain.contracts.services.ytmusic.search_service import ISearchService
-from app.application.dtos.inputs.search_input import SearchInput
-from app.domain.models.ytmusic.search import Search
-from typing import Optional
-from ytmusicapi import YTMusic
+
 
 class SearchService(ISearchService):
-    def __init__(self, client: YTMusic):
-        self._client = client
+    def __init__(self, gateway: YTMusicGateway):
+        self._gateway = gateway
 
-    def search(self, request: SearchInput) -> Search:
-        try:
-            search_req = SearchRequestMapper.map(request)
-            params = search_req.to_dict()
-            raw = self._client.search(**params)
+    async def search(self, query: str, category: Optional[Category], limit: int) -> Search:
+        raw = await self._gateway.call(
+            "search", query=query, filter=category.value if category else None, limit=limit
+        )
+        return SearchResponseMapper.map([SearchResponse.model_validate(item) for item in raw])
 
-            items = [SearchResponse(**item) for item in raw]
-            # print(items)
-            result = SearchResponseMapper.map(items)
-
-            return result
-
-        except Exception as e:
-            print(f"Error en search: {e}")
-            import traceback
-            traceback.print_exc()
-            return Search(artists=[], songs=[])
+    async def suggestions(self, query: str) -> list[str]:
+        raw = await self._gateway.call("get_search_suggestions", query)
+        return [s for s in raw if isinstance(s, str)]

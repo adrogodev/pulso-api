@@ -1,86 +1,65 @@
-from typing import List
+from typing import List, Optional
+
+from app.domain.models.ytmusic.album import Album
+from app.domain.models.ytmusic.artist import Artist
 from app.domain.models.ytmusic.search import Search
 from app.domain.models.ytmusic.song import Song
-from app.domain.models.ytmusic.artist import Artist
-from app.infrastructure.services.ytmusic.objects.search.search_response import SearchResponse
-from app.domain.models.ytmusic.album import Album
+from app.infrastructure.services.ytmusic.mapper.common import to_artists, to_thumbnail
+from app.infrastructure.services.ytmusic.objects.search.search_response import AlbumInfo, SearchResponse
+
 
 class SearchResponseMapper:
+    @staticmethod
+    def _to_album_ref(album: Optional[AlbumInfo]) -> Optional[Album]:
+        if not album or not album.name:
+            return None
+        return Album(id=album.id, title=album.name)
 
     @staticmethod
-    def _to_thumbnails(thumbs: List[Thumbnail]) -> str:
-        if not thumbs:
-            return None
-
-        first_url = thumbs[0].url
-        if not first_url:
-            return None
-            
-        return first_url.split("=")[0]
-
-    @staticmethod
-    def _to_artists(artists_data) -> List[Artist]:
-        return [
-            Artist(
-                name=a.name, 
-                id=a.id, 
-                thumbnail=SearchResponseMapper._to_thumbnails(a.thumbnails)
-            ) for a in (artists_data or []) if a.name]
-
-    @staticmethod
-    def _to_album(album_info: Optional[AlbumInfo], thumbnails: List[dict]) -> Optional[Album]:
-        if not album_info or not album_info.name:
-            return None
-        return Album(
-            title=album_info.name,
-            id=album_info.id,
-            year=None,
-            thumbnails=SearchResponseMapper._to_thumbnails(thumbnails)
+    def _to_song(item: SearchResponse) -> Song:
+        return Song(
+            id=item.videoId,
+            title=item.title or "Unknown",
+            thumbnail=to_thumbnail(item.thumbnails),
+            duration=item.duration,
+            duration_seconds=item.duration_seconds,
+            is_explicit=item.isExplicit,
+            artists=to_artists(item.artists),
+            album=SearchResponseMapper._to_album_ref(item.album),
         )
 
     @staticmethod
     def map(items: List[SearchResponse]) -> Search:
-        songs = []
-        artists = []
+        result = Search()
+        seen_artists: set[str] = set()
+
+        def add_artist(artist_id: Optional[str], name: Optional[str], item: SearchResponse) -> None:
+            if not name or (artist_id and artist_id in seen_artists):
+                return
+            if artist_id:
+                seen_artists.add(artist_id)
+            result.artists.append(Artist(id=artist_id, name=name, thumbnail=to_thumbnail(item.thumbnails)))
 
         for item in items:
-            # Top result (artista)
-            if item.category == "Top result" and item.resultType == "artist":
-                if item.artists:
-                    artists.append(
-                        Artist(
-                            id=item.artists[0].id,
-                            name=item.artists[0].name,
-                            thumbnail=SearchResponseMapper._to_thumbnails(item.thumbnails)
-                        )
-                    )
-                continue
-
-            # Artistas normales
-            if item.resultType == "artist":
-                name = item.title or item.artist
-                if name:
-                    artists.append(
-                        Artist(
-                            name=name, 
-                            id=item.browseId,
-                            thumbnail=SearchResponseMapper._to_thumbnails(item.thumbnails)
-                        )
-                    )
-
-            # Canciones
-            if item.resultType == "song" and item.videoId:
-                songs.append(
-                    Song(
-                        id=item.videoId,
+            kind = item.resultType
+            if kind == "artist":
+                if item.category == "Top result" and item.artists:
+                    add_artist(item.artists[0].id, item.artists[0].name, item)
+                else:
+                    add_artist(item.browseId, item.title or item.artist, item)
+            elif kind == "song" and item.videoId:
+                result.songs.append(SearchResponseMapper._to_song(item))
+            elif kind == "video" and item.videoId:
+                result.videos.append(SearchResponseMapper._to_song(item))
+            elif kind == "album" and item.browseId:
+                result.albums.append(
+                    Album(
+                        id=item.browseId,
                         title=item.title or "Unknown",
-                        thumbnail=SearchResponseMapper._to_thumbnails(item.thumbnails),
-                        duration=item.duration,
-                        duration_seconds=item.duration_seconds,
-                        artists=SearchResponseMapper._to_artists(item.artists),
-                ))
+                        thumbnail=to_thumbnail(item.thumbnails),
+                        year=item.year,
+                        artists=to_artists(item.artists),
+                    )
+                )
 
-        return Search(
-            songs=songs,
-            artists=artists
-        )
+        return result

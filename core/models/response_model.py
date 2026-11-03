@@ -1,15 +1,22 @@
-from typing import TypeVar, Generic
+from typing import Generic, TypeVar
+
 from pydantic import BaseModel
 
 T = TypeVar("T")
 
+
 class ResponseHttp(BaseModel, Generic[T]):
     success: bool
     message: str
-    data: T | None
+    data: T | None = None
 
-class ResponseErrorHttp(BaseModel, Generic[T]):
-    success: bool
+
+class ErrorDetail(BaseModel):
+    code: str
+    detail: object | None = None
+
+
+class ResponseErrorHttp(BaseModel):
+    success: bool = False
     message: str
-    error: T | None  
-    
+    error: ErrorDetail

@@ -1,7 +1,11 @@
 from typing import List, Optional
-from pydantic import BaseModel, Field
+
+from pydantic import BaseModel, ConfigDict, Field
+
 
 class Album(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
     id: Optional[str] = None
     title: str
     description: Optional[str] = None
@@ -12,8 +16,3 @@ class Album(BaseModel):
     artists: List["Artist"] = Field(default_factory=list)
     songs_count: Optional[int] = None
     songs: List["Song"] = Field(default_factory=list)
-
-    class Config:
-        from_attributes = True
-
-

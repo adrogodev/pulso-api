@@ -1,0 +1,13 @@
+from typing import Optional, Protocol
+
+
+class CachePort(Protocol):
+    """Byte-oriented key/value cache with per-entry TTL (seconds)."""
+
+    async def get(self, key: str) -> Optional[bytes]: ...
+
+    async def set(self, key: str, value: bytes, ttl: float) -> None: ...
+
+    async def delete(self, key: str) -> None: ...
+
+    async def close(self) -> None: ...

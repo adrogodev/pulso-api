@@ -1,6 +1,9 @@
+from typing import Optional
+
 from pydantic import BaseModel
+
 
 class YTMusicThumbnail(BaseModel):
     url: str
-    width: int
-    height: int
+    width: Optional[int] = None
+    height: Optional[int] = None

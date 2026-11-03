@@ -1,47 +1,37 @@
-from app.infrastructure.services.ytmusic.objects.common.artist import YTMusicArtist
-from app.domain.models.ytmusic.artist import Artist
-from app.infrastructure.services.ytmusic.objects.common.thumbnail import YTMusicThumbnail
-from app.infrastructure.services.ytmusic.objects.album.get_album_response import AlbumTrack as YTMusicAlbumTrack
-from app.domain.models.ytmusic.song import Song as Track 
-from app.infrastructure.services.ytmusic.objects.album.get_album_response import GetAlbumResponse
 from app.domain.models.ytmusic.album import Album
+from app.domain.models.ytmusic.song import Song
+from app.infrastructure.services.ytmusic.mapper.common import to_artists, to_thumbnail
+from app.infrastructure.services.ytmusic.objects.album.get_album_response import AlbumTrack, GetAlbumResponse
 
 
 class GetAlbumResponseMapper:
     @staticmethod
-    def _to_artist(source: YTMusicArtist) -> Artist:
-        return Artist(
-            id=source.id,
-            name=source.name
-        )
-    
-    @staticmethod
-    def _to_thumbnail(source: YTMusicThumbnail) -> str:
-       if not source:
-           return None
-       return source[0].url
-       
-    @staticmethod
-    def _to_track(source: YTMusicAlbumTrack) -> Track:
-        return Track(
+    def _to_track(source: AlbumTrack, album_ref: Album, thumbnail: str | None) -> Song:
+        return Song(
             id=source.videoId,
             title=source.title,
+            thumbnail=to_thumbnail(source.thumbnails) or thumbnail,
             duration=source.duration,
             duration_seconds=source.duration_seconds,
-            # track_number=source.trackNumber,
-            # thumbnail=GetAlbumResponseMapper._to_thumbnail(source.thumbnails),
+            track_number=source.trackNumber,
+            is_explicit=source.isExplicit,
+            artists=to_artists(source.artists),
+            album=album_ref,
         )
 
     @staticmethod
-    def map(data: GetAlbumResponse) -> Album:
+    def map(album_id: str, data: GetAlbumResponse) -> Album:
+        thumbnail = to_thumbnail(data.thumbnails)
+        album_ref = Album(id=album_id, title=data.title)
         return Album(
+            id=album_id,
             title=data.title,
             description=data.description,
-            thumbnail=GetAlbumResponseMapper._to_thumbnail(data.thumbnails),
+            thumbnail=thumbnail,
             duration=data.duration,
             duration_seconds=data.duration_seconds,
             year=data.year,
-            artists=[GetAlbumResponseMapper._to_artist(a) for a in data.artists],
+            artists=to_artists(data.artists),
             songs_count=data.trackCount,
-            songs=[GetAlbumResponseMapper._to_track(t) for t in data.tracks]
+            songs=[GetAlbumResponseMapper._to_track(t, album_ref, thumbnail) for t in data.tracks],
         )

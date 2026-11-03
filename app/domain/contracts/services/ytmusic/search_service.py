@@ -1,7 +1,10 @@
-from app.application.dtos.inputs.search_input import SearchInput
+from typing import Optional, Protocol
+
+from app.domain.enums.category import Category
 from app.domain.models.ytmusic.search import Search
-from typing import Protocol, Optional
+
 
 class ISearchService(Protocol):
-    def search(self, request: SearchInput) -> Optional[Search]:
-        ...
+    async def search(self, query: str, category: Optional[Category], limit: int) -> Search: ...
+
+    async def suggestions(self, query: str) -> list[str]: ...

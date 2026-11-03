@@ -8,7 +8,7 @@ class Thumbnail(BaseModel):
 
 
 class Artist(BaseModel):
-    name: str
+    name: Optional[str] = None
     id: Optional[str] = None
 
 
@@ -24,7 +24,7 @@ class ListenAgainTokens(BaseModel):
 class AlbumTrack(BaseModel):
     videoId: Optional[str] = None
     title: str
-    artists: List[Artist]
+    artists: Optional[List[Artist]] = None
     album: Optional[str] = None
     likeStatus: Optional[str] = None
     thumbnails: Optional[List[Thumbnail]] = None
@@ -47,14 +47,14 @@ class AlbumOtherVersion(BaseModel):
 
 class GetAlbumResponse(BaseModel):
     title: str
-    type: str
-    thumbnails: List[Thumbnail]
+    type: Optional[str] = None
+    thumbnails: List[Thumbnail] = []
     description: Optional[str] = None
-    artists: List[Artist]
+    artists: List[Artist] = []
     year: Optional[str] = None
     trackCount: Optional[int] = None
     duration: Optional[str] = None
     audioPlaylistId: Optional[str] = None
-    tracks: List[AlbumTrack]
+    tracks: List[AlbumTrack] = []
     other_versions: Optional[List[AlbumOtherVersion]] = None
     duration_seconds: Optional[int] = None
