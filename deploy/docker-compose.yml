@@ -1,8 +1,12 @@
 # Production stack: the API behind Caddy (reverse proxy with automatic HTTPS).
 # Lives on the VPS next to a `.env` file; the GitHub workflow copies it and sets IMAGE_TAG.
+name: pulso-api
+
 services:
   api:
     image: ghcr.io/adrogodev/pulso-api:${IMAGE_TAG:-latest}
+    container_name: pulso-api
+    hostname: pulso-api
     env_file: .env
     environment:
       # Caddy is the only client of the container, so X-Forwarded-For carries the real IP.
@@ -13,6 +17,7 @@ services:
 
   caddy:
     image: caddy:2
+    container_name: pulso-api-caddy
     restart: unless-stopped
     depends_on:
       api:
