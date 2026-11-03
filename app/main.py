@@ -18,12 +18,15 @@ from ioc.container import Container
 
 logger = logging.getLogger("pulso")
 
+SERVICE_NAME = "pulso-api"
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Shared clients are created once per process and closed on shutdown
     Container.resolve('ytmusic_client')
     http_client = Container.resolve('http_client')
+    logger.info("%s %s started", SERVICE_NAME, app.version)
     try:
         yield
     finally:

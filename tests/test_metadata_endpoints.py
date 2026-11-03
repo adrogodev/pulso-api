@@ -1,3 +1,7 @@
+import httpx
+
+from tests.conftest import make_settings
+
 STREAM_BASE = "http://testserver/api/stream/"
 
 
@@ -5,6 +9,20 @@ async def test_root_health(client):
     resp = await client.get("/")
     assert resp.status_code == 200
     assert resp.json() == {"message": "pulso api running..."}
+
+
+async def test_startup_logs_service_name_and_version(caplog, ytmusic, ydl, googlevideo):
+    from app.main import create_app
+
+    upstream = httpx.AsyncClient(transport=httpx.MockTransport(googlevideo))
+    application = create_app(
+        make_settings(),
+        overrides={"ytmusic_client": ytmusic, "ytdlp_factory": ydl.factory, "http_client": upstream},
+    )
+    with caplog.at_level("INFO", logger="pulso"):
+        async with application.router.lifespan_context(application):
+            pass
+    assert "pulso-api 0.0.1 started" in [r.getMessage() for r in caplog.records if r.name == "pulso"]
 
 
 async def test_search_returns_all_categories_with_stream_urls(client, ytmusic):
