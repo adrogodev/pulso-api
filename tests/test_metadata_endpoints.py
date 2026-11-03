@@ -22,7 +22,8 @@ async def test_startup_logs_service_name_and_version(caplog, ytmusic, ydl, googl
     with caplog.at_level("INFO", logger="pulso"):
         async with application.router.lifespan_context(application):
             pass
-    assert "pulso-api 0.0.1 started" in [r.getMessage() for r in caplog.records if r.name == "pulso"]
+    expected = f"pulso-api {application.version} started"
+    assert expected in [r.getMessage() for r in caplog.records if r.name == "pulso"]
 
 
 async def test_search_returns_all_categories_with_stream_urls(client, ytmusic):
