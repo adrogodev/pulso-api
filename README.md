@@ -326,6 +326,7 @@ The workflow `.github/workflows/deploy.yml` runs on every push and pull request 
 |---|---|---|
 | `test` | always | `uv sync --locked` and `uv run pytest` |
 | `image` | push to `main`, tag `v*.*.*`, manual run | Builds the `Dockerfile` and pushes it to GHCR as `latest` + `sha-<commit>` (tags add `X.Y.Z` and `X.Y`) |
+| `release` | tag `v*.*.*` | Creates the GitHub release with generated notes |
 | `deploy` | push to `main`, only when the variable `DEPLOY_ENABLED=true` | Copies `deploy/` to the VPS and restarts the stack with the new `sha-<commit>` image |
 
 The image runs a single uvicorn worker with the in-memory cache; Redis is not required. Before scaling to
@@ -401,8 +402,9 @@ git tag -a v0.0.1 -m "v0.0.1"
 git push origin v0.0.1
 ```
 
-The workflow builds `ghcr.io/adrogodev/pulso-api:0.0.1` (and `0.0`). Create the GitHub release from that
-tag under **Releases → Draft a new release**.
+The workflow runs the tests, builds `ghcr.io/adrogodev/pulso-api:0.0.1` (and `0.0`) and creates the GitHub
+release with notes generated from the commits since the previous tag. The `release` job fails when the tag
+does not match the `version` in `pyproject.toml`.
 
 ## Legal notice
 
