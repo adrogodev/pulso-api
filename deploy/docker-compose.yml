@@ -1,5 +1,5 @@
 # Production stack: the API behind Caddy (reverse proxy with automatic HTTPS).
-# Lives on the VPS next to a `.env` file; the GitHub workflow copies it and sets IMAGE_TAG.
+# Lives on the VPS next to a `.env` file; IMAGE_TAG in that file picks the image (default: latest).
 name: pulso-api
 
 services:

@@ -55,7 +55,7 @@ tests/             pytest suite with fakes for YouTube Music, yt-dlp and googlev
 bench/             benchmark client and simulated upstream server
 odd/tasks/         feature log of the streaming and performance work
 deploy/            production docker-compose stack and Caddyfile
-.github/workflows/ CI: tests, Docker image build and VPS deployment
+.github/workflows/ CI: tests, Docker image build and GitHub releases
 Dockerfile         production image
 ```
 
@@ -311,26 +311,25 @@ overhead; see the table above for measurements against real YouTube.
 Logs use the `pulso.*` logger names (`pulso.http`, `pulso.stream`, `pulso.ytdlp`, `pulso.ytmusic`,
 `pulso.cache`, `pulso.errors`). Redis keys use the `pulso:` prefix.
 
-## Deployment (Docker + GitHub Actions + VPS)
+## Deployment (Docker image + VPS)
+
+GitHub only builds and publishes the image; the VPS pulls it.
 
 ```
-git push tag vX.Y.Z ──> GitHub Actions: tests ──> Docker image ──> ghcr.io/adrogodev/pulso-api:X.Y.Z + latest
-                                       │                                   │
-                                       └──> GitHub release                 │
-                      VPS: docker compose pull && up -d  <── over SSH ─────┘
-                      Caddy (HTTPS) ──> api container :8000
+git push tag vX.Y.Z ──> GitHub Actions: tests ──> image ghcr.io/adrogodev/pulso-api:X.Y.Z + latest
+                                           └──> GitHub release
+VPS: docker pull ghcr.io/adrogodev/pulso-api:latest ──> run it
 ```
 
-The workflow `.github/workflows/deploy.yml`:
+The workflow `.github/workflows/release.yml`:
 
 | Job | When | What |
 |---|---|---|
 | `test` | push, pull request (tags also check the version) | `uv sync --locked` and `uv run pytest` |
 | `image` | push to `main` or tag `v*.*.*` | Builds the `Dockerfile` and pushes it to GHCR |
 | `release` | tag `v*.*.*` | Creates the GitHub release with generated notes |
-| `deploy` | tag `v*.*.*` or manual run, only when the variable `DEPLOY_ENABLED=true` | Copies `deploy/` to the VPS and restarts the stack with the chosen image |
 
-Image tags in `ghcr.io/adrogodev/pulso-api`:
+Image tags in `ghcr.io/adrogodev/pulso-api` (public, no login needed to pull):
 
 | Tag | Points to | Updated by |
 |---|---|---|
@@ -343,56 +342,7 @@ Image tags in `ghcr.io/adrogodev/pulso-api`:
 The image runs a single uvicorn worker with the in-memory cache; Redis is not required. Before scaling to
 several workers or containers, set `CACHE_BACKEND=redis` and add a Redis service.
 
-### 1. Prepare the VPS (once)
-
-Ubuntu/Debian x86_64 with ports 22, 80 and 443 open.
-
-```bash
-# as root
-curl -fsSL https://get.docker.com | sh
-adduser --disabled-password --gecos "" deploy
-usermod -aG docker deploy
-mkdir -p /opt/pulso-api && chown deploy:deploy /opt/pulso-api
-```
-
-Create the deploy key on your machine and authorize it on the VPS:
-
-```bash
-ssh-keygen -t ed25519 -f pulso_deploy -C "github-actions" -N ""
-ssh-copy-id -i pulso_deploy.pub deploy@<VPS_IP>
-ssh-keyscan -H <VPS_IP>          # output goes to the VPS_KNOWN_HOSTS secret
-```
-
-Create `/opt/pulso-api/.env` on the VPS from `.env.example`. At least:
-
-```dotenv
-API_DOMAIN=api.example.com              # or :80 to serve plain HTTP on the server IP
-PUBLIC_BASE_URL=https://api.example.com # http://<VPS_IP> without a domain
-CORS_ORIGINS=https://app.example.com    # browser frontends allowed to call the API
-CACHE_BACKEND=memory
-```
-
-With a domain, create a DNS `A` record pointing to the VPS IP before the first deployment: Caddy requests
-the Let's Encrypt certificate on start.
-
-### 2. Configure GitHub (once)
-
-In the repository, **Settings → Secrets and variables → Actions**:
-
-| Kind | Name | Value |
-|---|---|---|
-| Secret | `VPS_HOST` | VPS IP or hostname |
-| Secret | `VPS_USER` | `deploy` |
-| Secret | `VPS_SSH_KEY` | Contents of the private key `pulso_deploy` |
-| Secret | `VPS_KNOWN_HOSTS` | Output of `ssh-keyscan -H <VPS_IP>` |
-| Secret | `VPS_PORT` | Optional, SSH port when it is not 22 |
-| Variable | `DEPLOY_ENABLED` | `true` |
-
-The workflow logs in to GHCR with the built-in `GITHUB_TOKEN`, so the image can stay private.
-
-### 3. Release and deploy
-
-Pushes to `main` only test and build the `main` image. A release publishes and deploys a version:
+### Publish a release
 
 1. Update `version` in `pyproject.toml` and `app/main.py`, run `uv lock`, commit and push to `main`.
 2. Tag and push the tag:
@@ -402,34 +352,69 @@ Pushes to `main` only test and build the `main` image. A release publishes and d
    git push origin v0.0.2
    ```
 
-The workflow runs the tests, builds `0.0.2`, `0.0` and `latest`, creates the GitHub release with notes
-generated from the commits since the previous tag, and deploys `0.0.2`. The tag must match the `version` in
-`pyproject.toml`, otherwise nothing is published.
+The workflow runs the tests, pushes `0.0.2`, `0.0` and `latest`, and creates the GitHub release with notes
+generated from the commits since the previous tag. The tag must match the `version` in `pyproject.toml`,
+otherwise nothing is published.
 
-Check it on the VPS:
+### Run on the VPS
+
+Install Docker once (Ubuntu/Debian):
 
 ```bash
-cd /opt/pulso-api
+curl -fsSL https://get.docker.com | sh
+```
+
+Pull and run the API alone (port 8000):
+
+```bash
+docker pull ghcr.io/adrogodev/pulso-api:latest
+docker run -d --name pulso-api --restart unless-stopped -p 8000:8000 \
+  -e PUBLIC_BASE_URL=http://<VPS_IP>:8000 \
+  ghcr.io/adrogodev/pulso-api:latest
+```
+
+Pass more settings with `-e NAME=value` or `--env-file .env` (see `.env.example`).
+
+Update to a new release:
+
+```bash
+docker pull ghcr.io/adrogodev/pulso-api:latest
+docker rm -f pulso-api
+# run the same docker run command again
+docker image prune -f
+```
+
+Use a specific version instead of `latest` (for example `:0.0.1`) to pin it or to roll back.
+
+### Optional: HTTPS with Caddy (docker compose)
+
+`deploy/docker-compose.yml` runs the image behind Caddy, which serves HTTPS with a Let's Encrypt certificate.
+
+```bash
+mkdir -p /opt/pulso-api && cd /opt/pulso-api
+curl -fsSLO https://raw.githubusercontent.com/adrogodev/pulso-api/main/deploy/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/adrogodev/pulso-api/main/deploy/Caddyfile
+```
+
+Create `/opt/pulso-api/.env`:
+
+```dotenv
+IMAGE_TAG=latest                        # or a version such as 0.0.1
+API_DOMAIN=api.example.com              # or :80 to serve plain HTTP on the server IP
+PUBLIC_BASE_URL=https://api.example.com # http://<VPS_IP> without a domain
+CORS_ORIGINS=https://app.example.com    # browser frontends allowed to call the API
+CACHE_BACKEND=memory
+```
+
+With a domain, point a DNS `A` record to the VPS IP first and open ports 80 and 443. Then:
+
+```bash
+docker compose pull && docker compose up -d
 docker compose ps
 docker compose logs -f api
-curl https://api.example.com/
 ```
 
-### Deploy a specific image
-
-From GitHub: **Actions → Build and deploy → Run workflow**, then type the image tag (`latest`, `0.0.1`,
-`main`, `sha-abc1234`). It works for rollbacks and for trying the unreleased `main` image.
-
-From the VPS: the deployed tag is stored as `IMAGE_TAG` in `/opt/pulso-api/.env` (without it, `latest`).
-Change it and restart:
-
-```bash
-cd /opt/pulso-api
-sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=0.0.1/' .env
-docker compose pull && docker compose up -d
-```
-
-A private image needs `docker login ghcr.io` on the VPS first, with a GitHub token that has `read:packages`.
+To update, change `IMAGE_TAG` if needed and run `docker compose pull && docker compose up -d` again.
 
 ## Legal notice
 
