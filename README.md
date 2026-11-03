@@ -212,7 +212,7 @@ await fetch("/api/stream/prefetch", {
 | 429 | `RATE_LIMITED` (with `Retry-After`) |
 | 451 | `AGE_RESTRICTED`, `GEO_RESTRICTED` |
 | 502 | `UPSTREAM_UNAVAILABLE` |
-| 503 | `UPSTREAM_BLOCKED`, `UPSTREAM_RATE_LIMITED` (YouTube bot check / throttling) |
+| 503 | `UPSTREAM_BLOCKED`, `UPSTREAM_RATE_LIMITED` (YouTube bot check / throttling), `COOKIES_UNAVAILABLE`, `STREAM_MISCONFIGURED` (server streaming settings, see the startup logs) |
 | 504 | `UPSTREAM_TIMEOUT` |
 
 ### Migration from 0.1
@@ -452,6 +452,15 @@ services:
 ```dotenv
 YTDLP_COOKIES_FILE=/run/secrets/youtube-cookies.txt
 ```
+
+If the file cannot be used, the API still starts (search keeps working), logs one `ERROR pulso.ytdlp` line at
+startup with the cause, and every stream answers `503 COOKIES_UNAVAILABLE`:
+
+| Startup log | Fix |
+|---|---|
+| `YTDLP_COOKIES_FILE does not exist` | The volume line is missing in the compose, or the path differs from `YTDLP_COOKIES_FILE` |
+| `YTDLP_COOKIES_FILE is a directory, not a file` | The File Mount does not exist under that name, so Docker created a directory: create it as `youtube-cookies.txt` and redeploy |
+| `YTDLP_COOKIES_FILE cannot be read (Permission denied)` | The container runs as uid 10001: make the file readable (`chmod 644`) |
 
 With plain Docker:
 

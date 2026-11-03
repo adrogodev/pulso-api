@@ -4,6 +4,7 @@ import logging
 
 import pytest
 
+from app.domain.errors import StreamConfigurationError
 from app.infrastructure.services.streaming.httpx_audio_transport import build_http_client
 from app.infrastructure.services.streaming.ytdlp_stream_adapter import YtDlpStreamAdapter
 from tests.conftest import FakeYdl
@@ -44,9 +45,29 @@ async def test_each_extraction_reads_cookies_from_its_own_copy(ydl, tmp_path):
     assert source.read_text(encoding="utf-8") == "# Netscape HTTP Cookie File\n"
 
 
-def test_missing_cookies_file_fails_at_startup(ydl, tmp_path):
-    with pytest.raises(ValueError, match="YTDLP_COOKIES_FILE"):
-        make_adapter(ydl, cookies_file=str(tmp_path / "missing.txt"))
+@pytest.mark.parametrize("kind", ["missing", "directory", "unreadable"])
+async def test_unusable_cookies_file_is_a_clear_error(ydl, tmp_path, monkeypatch, caplog, kind):
+    path = tmp_path / "youtube-cookies.txt"
+    if kind == "directory":
+        # what Docker creates when a bind-mounted file does not exist on the host
+        path.mkdir()
+    elif kind == "unreadable":
+        path.write_text("# Netscape HTTP Cookie File\n", encoding="utf-8")
+        real_open = open
+
+        def deny(file, *args, **kwargs):
+            if str(file) == str(path):
+                raise PermissionError(13, "Permission denied", str(file))
+            return real_open(file, *args, **kwargs)
+
+        monkeypatch.setattr("builtins.open", deny)
+
+    adapter = make_adapter(ydl, cookies_file=str(path))
+    assert any(r.levelname == "ERROR" and "YTDLP_COOKIES_FILE" in r.getMessage() for r in caplog.records)
+    with pytest.raises(StreamConfigurationError) as raised:
+        await adapter.resolve(VIDEO_ID)
+    assert raised.value.code == "COOKIES_UNAVAILABLE"
+    assert ydl.calls == 0
 
 
 async def test_proxy_is_passed_to_ytdlp(ydl):
@@ -73,9 +94,23 @@ async def test_ytdlp_output_stays_at_debug(ydl, caplog):
     assert [r.levelno for r in caplog.records if r.name == "pulso.ytdlp"] == [logging.DEBUG, logging.DEBUG]
 
 
-def test_invalid_extractor_args_fail_at_startup(ydl):
-    with pytest.raises(ValueError, match="YTDLP_EXTRACTOR_ARGS"):
-        make_adapter(ydl, extractor_args="no-colon-here")
+async def test_invalid_extractor_args_are_a_clear_error(ydl, caplog):
+    adapter = make_adapter(ydl, extractor_args="no-colon-here")
+    assert any(r.levelname == "ERROR" and "YTDLP_EXTRACTOR_ARGS" in r.getMessage() for r in caplog.records)
+    with pytest.raises(StreamConfigurationError) as raised:
+        await adapter.resolve(VIDEO_ID)
+    assert raised.value.code == "STREAM_MISCONFIGURED"
+
+
+@pytest.mark.parametrize("settings_overrides", [{"YTDLP_COOKIES_FILE": "/run/secrets/does-not-exist.txt"}])
+async def test_bad_cookies_answer_503_and_search_keeps_working(client, caplog):
+    # the adapter is built at startup, so the configuration problem shows up in the boot logs
+    assert any(r.name == "pulso.ytdlp" and r.levelname == "ERROR" for r in caplog.get_records("setup"))
+    for path in ("/api/stream/song_vid_01", "/api/stream/song_vid_01/info"):
+        resp = await client.get(path)
+        assert resp.status_code == 503
+        assert resp.json()["error"]["code"] == "COOKIES_UNAVAILABLE"
+    assert (await client.get("/api/search", params={"query": "x"})).status_code == 200
 
 
 async def test_audio_client_uses_the_same_proxy():

@@ -25,6 +25,8 @@ SERVICE_NAME = "pulso-api"
 async def lifespan(app: FastAPI):
     # Shared clients are created once per process and closed on shutdown
     Container.resolve('ytmusic_client')
+    # Built now so a bad streaming setting (e.g. the cookies file) is reported in the startup logs
+    Container.resolve('audio_stream_provider')
     http_client = Container.resolve('http_client')
     logger.info("%s %s started", SERVICE_NAME, app.version)
     try:
@@ -52,7 +54,7 @@ def create_app(settings: Optional[EnvSettings] = None, overrides: Optional[Mappi
 
     app = FastAPI(
         title="Pulso API",
-        version="0.0.2",
+        version="0.0.3",
         description="YouTube Music catalog and audio streaming. The frontend only talks to this API.",
         docs_url=None,
         redoc_url=None,

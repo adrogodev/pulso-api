@@ -41,3 +41,9 @@ class UpstreamBlockedError(DomainError):
 
 class UpstreamTimeoutError(DomainError):
     code = "UPSTREAM_TIMEOUT"
+
+
+class StreamConfigurationError(DomainError):
+    """The server's streaming settings are unusable (e.g. a missing cookies file); fixed by the operator."""
+
+    code = "STREAM_MISCONFIGURED"

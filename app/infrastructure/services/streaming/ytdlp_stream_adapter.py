@@ -14,6 +14,7 @@ from app.domain.errors import (
     DomainError,
     NotFoundError,
     PrivateContentError,
+    StreamConfigurationError,
     UpstreamBlockedError,
     UpstreamTimeoutError,
     UpstreamUnavailableError,
@@ -97,10 +98,16 @@ def _parse_extractor_args(value: str) -> Dict[str, Dict[str, list]]:
 
 
 def _read_cookies(path: str) -> bytes:
-    if not os.path.isfile(path):
+    if os.path.isdir(path):
+        # Docker creates a directory when the bind-mounted file is missing on the host
+        raise ValueError(f"YTDLP_COOKIES_FILE is a directory, not a file (is the mount source missing?): {path}")
+    if not os.path.exists(path):
         raise ValueError(f"YTDLP_COOKIES_FILE does not exist: {path}")
-    with open(path, "rb") as f:
-        return f.read()
+    try:
+        with open(path, "rb") as f:
+            return f.read()
+    except OSError as e:
+        raise ValueError(f"YTDLP_COOKIES_FILE cannot be read ({e.strerror}): {path}") from e
 
 
 @contextlib.contextmanager
@@ -143,14 +150,31 @@ class YtDlpStreamAdapter(AudioStreamProvider):
             "js_runtimes": _js_runtimes(js_runtime),
             "logger": _YtDlpLogger(),
         }
-        # Datacenter IPs hit YouTube's "confirm you're not a bot" check; these options get past it
-        self._cookies = _read_cookies(cookies_file) if cookies_file else None
+        # Datacenter IPs hit YouTube's "confirm you're not a bot" check; these options get past it.
+        # A bad setting is logged at startup and answered as a clear 503 instead of crashing requests.
+        self._config_error: Optional[StreamConfigurationError] = None
+        self._cookies: Optional[bytes] = None
+        if cookies_file:
+            try:
+                self._cookies = _read_cookies(cookies_file)
+            except ValueError as e:
+                self._fail_config(e, "COOKIES_UNAVAILABLE", "The YouTube cookies file configured on the server cannot be read")
         if proxy:
             self._params["proxy"] = proxy
         if extractor_args.strip():
-            self._params["extractor_args"] = _parse_extractor_args(extractor_args)
+            try:
+                self._params["extractor_args"] = _parse_extractor_args(extractor_args)
+            except ValueError as e:
+                self._fail_config(e, "STREAM_MISCONFIGURED", "The server's yt-dlp settings are invalid")
+
+    def _fail_config(self, cause: ValueError, code: str, message: str) -> None:
+        logger.error("%s; audio streaming is disabled until it is fixed", cause)
+        if self._config_error is None:
+            self._config_error = StreamConfigurationError(message, code=code)
 
     async def resolve(self, video_id: str) -> StreamSource:
+        if self._config_error is not None:
+            raise StreamConfigurationError(self._config_error.message, code=self._config_error.code)
         started = time.perf_counter()
         info = await anyio.to_thread.run_sync(self._extract, video_id, limiter=self._limiter)
         logger.info("resolved %s in %.0f ms", video_id, (time.perf_counter() - started) * 1000)

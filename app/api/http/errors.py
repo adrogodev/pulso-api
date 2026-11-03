@@ -12,6 +12,7 @@ from app.domain.errors import (
     InvalidInputError,
     NotFoundError,
     PrivateContentError,
+    StreamConfigurationError,
     UpstreamBlockedError,
     UpstreamTimeoutError,
     UpstreamUnavailableError,
@@ -28,6 +29,7 @@ STATUS_BY_ERROR: dict[type[DomainError], int] = {
     UpstreamUnavailableError: 502,
     UpstreamBlockedError: 503,
     UpstreamTimeoutError: 504,
+    StreamConfigurationError: 503,
 }
 
 
