@@ -23,7 +23,12 @@ def config_application(settings: EnvSettings):
     Container.register('stream_links', lambda: StreamLinkBuilder(settings.public_base_url), singleton=True)
     Container.register(
         'stream_resolver',
-        lambda: StreamResolver(r('audio_stream_provider'), r('cached_loader'), settings.STREAM_EXPIRY_MARGIN_SECONDS),
+        lambda: StreamResolver(
+            r('audio_stream_provider'),
+            r('cached_loader'),
+            settings.STREAM_EXPIRY_MARGIN_SECONDS,
+            settings.STREAM_BLOCKED_COOLDOWN_SECONDS,
+        ),
         singleton=True,
     )
 

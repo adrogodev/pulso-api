@@ -115,6 +115,7 @@ Behind a corporate proxy that inspects TLS, set `USE_SYSTEM_TRUSTSTORE=true` (an
 | `STREAM_CHUNK_SIZE` | `65536` | Proxy chunk size in bytes |
 | `STREAM_UPSTREAM_WINDOW_BYTES` | `10485760` | Max bytes per upstream Range request; larger spans are read as consecutive windows (googlevideo throttles bigger ranges) |
 | `STREAM_PREFETCH_MAX_IDS` | `50` | Maximum ids per `/api/stream/prefetch` request (400 `TOO_MANY_IDS` above it) |
+| `STREAM_BLOCKED_COOLDOWN_SECONDS` | `60` | After a bot check or rate limit, stream requests fail fast with 503 for this long instead of asking YouTube again (0 disables) |
 | `YTDLP_MAX_CONCURRENCY` | `4` | Concurrent yt-dlp resolutions |
 | `YTDLP_JS_RUNTIME` | `deno` | `deno`, `node`, `bun` or `quickjs` |
 | `YTDLP_COOKIES_FILE` | empty | Path to a Netscape `cookies.txt` of a YouTube account (see [YouTube bot check on servers](#youtube-bot-check-on-servers)) |

@@ -44,6 +44,8 @@ class EnvSettings(BaseSettings):
     # googlevideo throttles ranges above ~10 MB; upstream is read in windows of this size
     STREAM_UPSTREAM_WINDOW_BYTES: int = 10 * 1024 * 1024
     STREAM_PREFETCH_MAX_IDS: int = 50
+    # After a bot check or rate limit, fail fast for this long instead of asking YouTube again (0 disables)
+    STREAM_BLOCKED_COOLDOWN_SECONDS: int = 60
     YTDLP_MAX_CONCURRENCY: int = 4
     YTDLP_JS_RUNTIME: str = "deno"
     # Getting past YouTube's bot check from datacenter IPs (all optional)
