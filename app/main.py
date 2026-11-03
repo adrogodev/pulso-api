@@ -49,7 +49,7 @@ def create_app(settings: Optional[EnvSettings] = None, overrides: Optional[Mappi
 
     app = FastAPI(
         title="Pulso API",
-        version="0.2.0",
+        version="0.0.1",
         description="YouTube Music catalog and audio streaming. The frontend only talks to this API.",
         docs_url=None,
         redoc_url=None,

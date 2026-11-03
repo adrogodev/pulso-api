@@ -1,6 +1,6 @@
 [project]
 name = "pulso-api"
-version = "0.2.0"
+version = "0.0.1"
 description = "Pulso API: a FastAPI layer over YouTube Music with an audio streaming proxy"
 readme = "README.md"
 requires-python = ">=3.12"
