@@ -1,11 +1,63 @@
-# Rythmx API
+# Pulso API
 
-A FastAPI backend that exposes the YouTube Music catalog and plays audio **through the API itself**.
-The frontend never talks to YouTube Music or `googlevideo.com`:
+A standalone REST API over YouTube Music. It exposes the catalog (search, albums, artists, radio queues,
+lyrics) and plays audio **through the API itself**. Clients (a web frontend, a mobile app, any HTTP
+audio player) never talk to YouTube Music or `googlevideo.com`:
 
 ```
-browser ──> Rythmx API ──> ytmusicapi (catalog) / yt-dlp (audio URL) ──> YouTube
+client ──> Pulso API ──> ytmusicapi (catalog) / yt-dlp (audio URL) ──> YouTube
 ```
+
+## Features
+
+- **Search** of songs, videos, albums and artists, plus autocomplete suggestions.
+- **Catalog**: albums with tracks, artists with top songs and albums, "up next" radio queues, lyrics.
+- **Audio streaming proxy** with full HTTP `Range` support (play, seek, resume), AAC by default and Opus
+  as fallback. Works with `<audio>`, just_audio / ExoPlayer and AVPlayer.
+- **Prefetch** of upcoming tracks so the next song starts instantly.
+- Every song, video and track carries a ready-to-play `stream_url`.
+- **Performance**: non-blocking calls to ytmusicapi and yt-dlp, read-through cache (memory or Redis) with
+  single-flight, `ETag` / `Cache-Control`, gzip for JSON, pooled HTTP/2 client towards googlevideo.
+- **Operations**: one JSON envelope for every response, real HTTP status codes, per-IP rate limiting,
+  configurable CORS, `Server-Timing` header and slow-request logging.
+
+## Tech stack
+
+Python 3.12+ (3.14 pinned in `.python-version`), FastAPI, Pydantic 2, ytmusicapi, yt-dlp (with Deno),
+httpx (HTTP/2), anyio, cachetools, optional Redis, uv for dependency management, pytest for tests.
+
+## Quick start
+
+```bash
+uv sync
+cp .env.example .env
+uv run uvicorn app.main:app --reload
+```
+
+Open <http://localhost:8000/docs> for the interactive API reference, or try:
+
+```bash
+curl "http://localhost:8000/api/search?query=daft%20punk&filter=songs&limit=3"
+```
+
+## Project structure
+
+```
+app/
+  domain/          models, errors and ports (no framework or library code besides Pydantic)
+  application/     use cases, DTOs, cache loader, stream resolver and link builder
+  infrastructure/  adapters: ytmusicapi, yt-dlp, httpx transport, memory/Redis cache
+  api/             routers, controllers, middlewares, exception handlers, OpenAPI examples
+  main.py          app factory (create_app) and lifespan
+core/              settings, base contracts, response envelope, single-flight
+ioc/               dependency injection container
+tests/             pytest suite with fakes for YouTube Music, yt-dlp and googlevideo
+bench/             benchmark client and simulated upstream server
+odd/tasks/         feature log of the streaming and performance work
+```
+
+Each layer has a `config_*.py` that registers its dependencies in the container; `app/main.py` wires them
+together in `create_app`.
 
 ## Architecture
 
@@ -106,6 +158,8 @@ All JSON responses use the same envelope:
 
 | Method | Path | Description |
 |---|---|---|
+| GET | `/` | Health check: `{"message": "pulso api running..."}` (no envelope) |
+| GET | `/docs` | Interactive API reference (Scalar); schema at `/openapi.json` |
 | GET | `/api/search?query=&filter=&limit=` | Songs, videos, albums and artists. `filter`: `songs`, `videos`, `albums`, `artists` |
 | GET | `/api/search/suggestions?q=` | Autocomplete suggestions |
 | GET | `/api/album/{album_id}` | Album with tracks |
@@ -229,3 +283,33 @@ queue so the next song is already resolved when it starts.
 Before, every request blocked the event loop (requests were served one at a time) and created a new
 `YTMusic` client because the DI container did not keep singletons. These numbers measure the API's own
 overhead; see the table above for measurements against real YouTube.
+
+## Mobile clients
+
+- Android emulator: set `PUBLIC_BASE_URL=http://10.0.2.2:8000`. `10.0.2.2` is the emulator's alias for the
+  host loopback, so the default bind works. Physical devices need `--host 0.0.0.0` and the PC's LAN IP.
+- The API is plain HTTP in development: allow cleartext traffic on Android
+  (`android:usesCleartextTraffic` or a `network_security_config`) and an ATS exception on iOS.
+- `CORS_ORIGINS` only matters for browsers (including web builds of mobile apps); native apps ignore CORS.
+- Restart the server after changing `PUBLIC_BASE_URL`: cached responses keep the old `stream_url`.
+
+## Development
+
+| Task | Command |
+|---|---|
+| Install dependencies | `uv sync` |
+| Add a dependency | `uv add <package>` (updates `pyproject.toml` and `uv.lock`) |
+| Upgrade dependencies | `uv lock --upgrade && uv sync` |
+| Run the API | `uv run uvicorn app.main:app --reload` |
+| Run tests | `uv run pytest` |
+
+`uv.lock` pins the exact version and hash of every dependency; commit it and never edit it by hand.
+
+Logs use the `pulso.*` logger names (`pulso.http`, `pulso.stream`, `pulso.ytdlp`, `pulso.ytmusic`,
+`pulso.cache`, `pulso.errors`). Redis keys use the `pulso:` prefix.
+
+## Legal notice
+
+This project extracts audio from YouTube through ytmusicapi and yt-dlp, which goes against the YouTube
+Terms of Service. It is intended for personal and educational use; evaluate that risk before publishing or
+operating it commercially.
