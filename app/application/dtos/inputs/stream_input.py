@@ -11,6 +11,7 @@ class AudioStreamRequest(BaseModel):
 
 
 class PrefetchInput(BaseModel):
+    # The upper bound is STREAM_PREFETCH_MAX_IDS, enforced by the use case
     video_ids: List[Annotated[str, Field(pattern=VIDEO_ID_PATTERN)]] = Field(
-        min_length=1, max_length=50, examples=[["dQw4w9WgXcQ", "kJQP7kiw5Fk"]]
+        min_length=1, examples=[["dQw4w9WgXcQ", "kJQP7kiw5Fk"]]
     )

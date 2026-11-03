@@ -57,6 +57,7 @@ Behind a corporate proxy that inspects TLS, set `USE_SYSTEM_TRUSTSTORE=true` (an
 | `STREAM_EXPIRY_MARGIN_SECONDS` | `300` | A resolved URL is cached until its `expire` minus this margin |
 | `STREAM_FALLBACK_TTL_SECONDS` | `1800` | Lifetime assumed when a URL has no `expire` parameter |
 | `STREAM_CHUNK_SIZE` | `65536` | Proxy chunk size in bytes |
+| `STREAM_PREFETCH_MAX_IDS` | `50` | Maximum ids per `/api/stream/prefetch` request (400 `TOO_MANY_IDS` above it) |
 | `YTDLP_MAX_CONCURRENCY` | `4` | Concurrent yt-dlp resolutions |
 | `YTDLP_JS_RUNTIME` | `deno` | `deno`, `node`, `bun` or `quickjs` |
 | `HTTP_CONNECT_TIMEOUT` / `HTTP_READ_TIMEOUT` | `5` / `30` | Upstream audio timeouts (seconds) |
@@ -141,7 +142,7 @@ await fetch("/api/stream/prefetch", {
 
 | HTTP | Codes |
 |---|---|
-| 400 | `INVALID_VIDEO_ID` |
+| 400 | `INVALID_VIDEO_ID`, `TOO_MANY_IDS` |
 | 403 | `CONTENT_PRIVATE` |
 | 404 | `NOT_FOUND`, `VIDEO_NOT_FOUND`, `AUDIO_FORMAT_UNAVAILABLE`, `LYRICS_NOT_FOUND` |
 | 422 | `VALIDATION_ERROR` |

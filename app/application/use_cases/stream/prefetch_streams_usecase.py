@@ -4,7 +4,7 @@ from typing import List, Set
 
 from app.application.dtos.outputs.stream_output import PrefetchResult
 from app.application.services.stream_resolver import StreamResolver
-from app.domain.errors import DomainError
+from app.domain.errors import DomainError, InvalidInputError
 from app.domain.models.stream import ensure_video_id
 from core.contracts.usecase_contract import UseCaseArgs, UseCaseContract
 
@@ -14,12 +14,15 @@ logger = logging.getLogger("rythmx.stream")
 class PrefetchStreamsUseCase(UseCaseContract[List[str], PrefetchResult]):
     """Warms the stream cache in the background (e.g. for the playback queue)."""
 
-    def __init__(self, resolver: StreamResolver):
+    def __init__(self, resolver: StreamResolver, max_ids: int):
         self._resolver = resolver
+        self._max_ids = max_ids
         self._tasks: Set[asyncio.Task] = set()
 
     async def execute(self, args: UseCaseArgs[List[str]]) -> PrefetchResult:
         ids = list(dict.fromkeys(ensure_video_id(v) for v in args.data))
+        if len(ids) > self._max_ids:
+            raise InvalidInputError(f"At most {self._max_ids} video ids per request", code="TOO_MANY_IDS")
         scheduled = 0
         for video_id in ids:
             if await self._resolver.is_cached(video_id):

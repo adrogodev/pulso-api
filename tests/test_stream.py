@@ -183,3 +183,20 @@ async def test_client_disconnect_closes_upstream():
     await asyncio.wait_for(response(scope, receive, send), timeout=2)
     assert closed.is_set()
     assert "http.response.start" in sent
+
+
+@pytest.mark.parametrize("bad_id", ["song_vid_01\n", "song_vid_01\r\n", "song_vid_0", "song vid 01"])
+async def test_video_id_guard_rejects_malformed_ids(client, bad_id):
+    resp = await client.get("/api/songs", params={"song_id": bad_id})
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "INVALID_VIDEO_ID"
+
+
+@pytest.mark.parametrize("settings_overrides", [{"STREAM_PREFETCH_MAX_IDS": 2}])
+async def test_prefetch_respects_configured_max_ids(client, ydl):
+    resp = await client.post(
+        "/api/stream/prefetch", json={"video_ids": ["song_vid_01", "track_vid_1", "video_vid_1"]}
+    )
+    assert resp.status_code == 400
+    assert resp.json()["error"]["code"] == "TOO_MANY_IDS"
+    assert ydl.calls == 0

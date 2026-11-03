@@ -67,4 +67,8 @@ def config_application(settings: EnvSettings):
     Container.register(
         'get_stream_info_usecase', lambda: GetStreamInfoUseCase(r('stream_resolver'), r('stream_links')), singleton=True
     )
-    Container.register('prefetch_streams_usecase', lambda: PrefetchStreamsUseCase(r('stream_resolver')), singleton=True)
+    Container.register(
+        'prefetch_streams_usecase',
+        lambda: PrefetchStreamsUseCase(r('stream_resolver'), settings.STREAM_PREFETCH_MAX_IDS),
+        singleton=True,
+    )

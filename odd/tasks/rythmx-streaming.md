@@ -30,12 +30,12 @@ Branch: `feat/streaming-performance` · Delivery: `ask-on-risk` · Test runner: 
 
 | ID | Specs | Route | Status | Commit |
 |----|-------|-------|--------|--------|
-| T0 | S12, S19, S20 | inline | pending | |
-| T1 | S13, S15, S17, S18 | inline | pending | |
-| T2 | S13, S14, S16 | inline | pending | |
-| T3 | S1-S10 | inline | pending | |
-| T4 | S11 | inline | pending | |
-| T5 | S18, S20 | inline | pending | |
+| T0 | S12, S19, S20 | inline | done (baseline bench) | 712d535 |
+| T1 | S13, S15, S17, S18 | inline | done, 68 tests green | 9c15602 |
+| T2 | S13, S14, S16 | inline | done, 68 tests green | 9c15602 |
+| T3 | S1-S10 | inline | done, 68 tests green | 9c15602 |
+| T4 | S11 | inline | done, 68 tests green | 9c15602 |
+| T5 | S18, S20 | inline | done except .env.example (permission-denied path) | 9c15602, 97a4873 |
 
 Route evidence: one coherent codebase, units depend on each other (F1 -> F2 -> F3), no Writer trigger reason; parent writes inline.
 
@@ -44,3 +44,9 @@ Route evidence: one coherent codebase, units depend on each other (F1 -> F2 -> F
 - L1 (2026-11-03) Original request: full prompt "Contexto del proyecto ... Al terminar, dame un resumen de los cambios, las decisiones que tomaste y cualquier riesgo o limitación pendiente." (Objetivos 1-3 + criterios de aceptación; quoted fragments in Specs).
 - L2 (2026-11-03) User approved the phased plan: "Si, continua con la ejecucion del plan".
 - L3 (2026-11-03) Environment: corporate FortiGate intercepts TLS (fixed for dev via `truststore`) and blocks YouTube/YouTube Music by policy ("Application Control Violation ... YouTube_Music"). Real upstream checks are impossible from this network; benchmarks use a simulated upstream with fixed latency; real-browser acceptance stays pending for the user.
+- L4 (2026-11-03) FastAPI 0.162 deprecates ORJSONResponse; JSON is serialized once in `api/http/responses.py` with Pydantic `model_dump_json(exclude_none=True)` instead (S15 adapted, orjson dropped).
+- L5 (2026-11-03) yt-dlp 2026.10.26 needs a JS runtime for YouTube; `yt-dlp[default,deno]` ships Deno inside the venv.
+- L6 (2026-11-03) F1-F4 were implemented in one pass because main/container wire every layer; tests ran at the end (68 passed, -W error). Benchmark (simulated upstream, c=10): search p50 5525 ms -> 44 ms, 1.8 -> 192 rps; cached stream first byte 7 ms sequential.
+- L7 (2026-11-03) `.env.example` is behind a deny permission rule; the full template was written to the session scratchpad for the user to copy.
+- L8 (2026-11-03) Native assess: high (executable_change + item 4). Independent verifier launched; native review pending candidate consent.
+- L9 (2026-11-03) Verifier: all specs pass except S20 (.env.example, known permission block). Blocker fixed: `ensure_video_id` accepted a trailing newline (re.match + `$`), leaking LF into the /api/songs Link header; now fullmatch + regression tests. Advisory fixed: STREAM_PREFETCH_MAX_IDS was ignored; now enforced (400 TOO_MANY_IDS). 73 tests green.

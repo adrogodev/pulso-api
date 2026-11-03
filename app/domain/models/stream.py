@@ -12,7 +12,8 @@ _VIDEO_ID_RE = re.compile(VIDEO_ID_PATTERN)
 
 def ensure_video_id(video_id: str) -> str:
     """YouTube video ids are 11 url-safe characters; anything else never reaches yt-dlp."""
-    if not _VIDEO_ID_RE.match(video_id):
+    # fullmatch: with match(), "$" would also accept a trailing newline
+    if not _VIDEO_ID_RE.fullmatch(video_id):
         raise InvalidInputError("Invalid video id", code="INVALID_VIDEO_ID")
     return video_id
 
