@@ -1,0 +1,7 @@
+{$API_DOMAIN} {
+	# No `encode`: the API already gzips JSON and audio must reach the client untouched.
+	reverse_proxy api:8000 {
+		# Stream audio chunks as they arrive instead of buffering them.
+		flush_interval -1
+	}
+}

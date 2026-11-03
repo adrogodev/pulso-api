@@ -1,0 +1,34 @@
+# Production stack: the API behind Caddy (reverse proxy with automatic HTTPS).
+# Lives on the VPS next to a `.env` file; the GitHub workflow copies it and sets IMAGE_TAG.
+services:
+  api:
+    image: ghcr.io/adrogodev/pulso-api:${IMAGE_TAG:-latest}
+    env_file: .env
+    environment:
+      # Caddy is the only client of the container, so X-Forwarded-For carries the real IP.
+      TRUST_PROXY_HEADERS: "true"
+    restart: unless-stopped
+    expose:
+      - "8000"
+
+  caddy:
+    image: caddy:2
+    restart: unless-stopped
+    depends_on:
+      api:
+        condition: service_healthy
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      # A domain (api.example.com) enables HTTPS; ":80" serves plain HTTP on the server IP.
+      API_DOMAIN: ${API_DOMAIN:-:80}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+
+volumes:
+  caddy_data:
+  caddy_config:
