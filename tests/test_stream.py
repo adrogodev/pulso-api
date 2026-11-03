@@ -15,7 +15,9 @@ async def test_full_stream_without_range(client, googlevideo):
     assert resp.headers["content-type"] == "audio/mp4"
     assert resp.headers["content-length"] == str(SIZE)
     assert resp.headers["accept-ranges"] == "bytes"
-    assert "range" not in googlevideo.requests[0].headers
+    assert "content-range" not in resp.headers
+    # googlevideo throttles and drops requests without Range, so the proxy always sends one
+    assert googlevideo.requests[0].headers["range"] == "bytes=0-10485759"
 
 
 async def test_range_request_returns_206_with_content_range(client, googlevideo):
@@ -70,7 +72,8 @@ async def test_expired_upstream_url_is_re_resolved_once(client, ydl, googlevideo
     assert resp.status_code == 206
     assert resp.content == AUDIO[:10]
     assert ydl.calls == 2
-    assert [r.url.params["n"] for r in googlevideo.requests] == ["1", "2"]
+    # same URL retried once first, then re-resolved once
+    assert [r.url.params["n"] for r in googlevideo.requests] == ["1", "1", "2"]
     # the refreshed URL replaced the cached one
     await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=0-9"})
     assert ydl.calls == 2
@@ -82,7 +85,7 @@ async def test_persistent_403_maps_to_503_without_loops(client, ydl, googlevideo
     assert resp.status_code == 503
     assert resp.json()["error"]["code"] == "UPSTREAM_BLOCKED"
     assert ydl.calls == 2
-    assert len(googlevideo.requests) == 2
+    assert [r.url.params["n"] for r in googlevideo.requests] == ["1", "1", "2", "2"]
 
 
 async def test_upstream_server_error_maps_to_502(client, googlevideo):
@@ -200,3 +203,81 @@ async def test_prefetch_respects_configured_max_ids(client, ydl):
     assert resp.status_code == 400
     assert resp.json()["error"]["code"] == "TOO_MANY_IDS"
     assert ydl.calls == 0
+
+
+async def test_upstream_drop_mid_stream_ends_response_without_error_log(client, googlevideo, caplog):
+    googlevideo.fail_after_bytes = 100_000  # more than one 64 KB chunk
+    with caplog.at_level("WARNING"):
+        resp = await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=0-"})
+    assert resp.status_code == 206
+    assert 0 < len(resp.content) < SIZE
+    assert not any(r.levelname == "ERROR" for r in caplog.records)
+    assert any("dropped" in r.message for r in caplog.records)
+
+
+async def test_transient_403_on_fresh_url_is_retried_without_re_resolving(client, ydl, googlevideo):
+    # googlevideo sometimes rejects the very first hit on a just-issued URL
+    googlevideo.transient_403_n = {"1"}
+    resp = await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=0-9"})
+    assert resp.status_code == 206
+    assert resp.content == AUDIO[:10]
+    assert ydl.calls == 1
+    assert [r.url.params["n"] for r in googlevideo.requests] == ["1", "1"]
+
+
+async def test_gone_url_is_re_resolved_immediately(client, ydl, googlevideo):
+    googlevideo.gone_n = {"1"}
+    resp = await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=0-9"})
+    assert resp.status_code == 206
+    assert [r.url.params["n"] for r in googlevideo.requests] == ["1", "2"]
+
+
+WINDOW = 50_000
+
+
+@pytest.mark.parametrize("settings_overrides", [{"STREAM_UPSTREAM_WINDOW_BYTES": WINDOW}])
+async def test_full_download_is_fetched_in_bounded_upstream_windows(client, googlevideo):
+    # googlevideo throttles ranges larger than ~10 MB, so upstream is read window by window
+    resp = await client.get("/api/stream/song_vid_01")
+    assert resp.status_code == 200
+    assert resp.content == AUDIO
+    assert resp.headers["content-length"] == str(SIZE)
+    assert "content-range" not in resp.headers
+    assert [r.headers["range"] for r in googlevideo.requests] == [
+        "bytes=0-49999", "bytes=50000-99999", "bytes=100000-149999", "bytes=150000-199999"
+    ]
+
+
+@pytest.mark.parametrize("settings_overrides", [{"STREAM_UPSTREAM_WINDOW_BYTES": WINDOW}])
+async def test_client_range_spanning_windows_keeps_its_content_range(client, googlevideo):
+    resp = await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=10-120009"})
+    assert resp.status_code == 206
+    assert resp.content == AUDIO[10:120010]
+    assert resp.headers["content-range"] == f"bytes 10-120009/{SIZE}"
+    assert resp.headers["content-length"] == "120000"
+    assert [r.headers["range"] for r in googlevideo.requests] == [
+        "bytes=10-50009", "bytes=50010-100009", "bytes=100010-120009"
+    ]
+
+
+@pytest.mark.parametrize("settings_overrides", [{"STREAM_UPSTREAM_WINDOW_BYTES": WINDOW}])
+async def test_open_ended_client_range_reads_until_end_of_file(client):
+    resp = await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=60000-"})
+    assert resp.status_code == 206
+    assert resp.content == AUDIO[60000:]
+    assert resp.headers["content-range"] == f"bytes 60000-{SIZE - 1}/{SIZE}"
+
+
+@pytest.mark.parametrize("settings_overrides", [{"STREAM_UPSTREAM_WINDOW_BYTES": WINDOW}])
+async def test_failing_later_window_ends_body_early_without_error(client, googlevideo, caplog):
+    googlevideo.forbid_from_byte = 100_000
+    with caplog.at_level("WARNING"):
+        resp = await client.get("/api/stream/song_vid_01")
+    assert resp.status_code == 200
+    assert resp.content == AUDIO[:100_000]
+    assert not any(r.levelname == "ERROR" for r in caplog.records)
+
+
+async def test_multi_range_is_passed_through_untouched(client, googlevideo):
+    await client.get("/api/stream/song_vid_01", headers={"Range": "bytes=0-9, 20-29"})
+    assert googlevideo.requests[0].headers["range"] == "bytes=0-9, 20-29"

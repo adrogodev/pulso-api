@@ -107,20 +107,47 @@ class FakeGoogleVideo:
     def __init__(self):
         self.requests: List[httpx.Request] = []
         self.forbidden_n: set[str] = set()
+        self.transient_403_n: set[str] = set()  # first hit on these URLs answers 403
+        self.gone_n: set[str] = set()
+        self.forbid_from_byte: Optional[int] = None  # ranges starting at or after this offset answer 403
+        self._seen_n: set[str] = set()
         self.always_status: Optional[int] = None
+        self.fail_after_bytes: Optional[int] = None
+
+    def _body(self, data: bytes) -> httpx.AsyncByteStream:
+        if self.fail_after_bytes is None:
+            return httpx.ByteStream(data)
+        cut = self.fail_after_bytes
+
+        class _Dropping(httpx.AsyncByteStream):
+            async def __aiter__(self):
+                yield data[:cut]
+                raise httpx.ReadError("connection reset by upstream")
+
+        return _Dropping()
 
     def __call__(self, request: httpx.Request) -> httpx.Response:
         self.requests.append(request)
         if self.always_status:
             return httpx.Response(self.always_status)
-        if request.url.params.get("n") in self.forbidden_n:
+        n = request.url.params.get("n")
+        first_hit = n not in self._seen_n
+        self._seen_n.add(n)
+        if n in self.forbidden_n or (first_hit and n in self.transient_403_n):
             return httpx.Response(403)
+        if n in self.gone_n:
+            return httpx.Response(410)
         size = len(AUDIO)
         rng = request.headers.get("range")
         if not rng:
-            return httpx.Response(200, headers={"Content-Type": "audio/mp4", "Content-Length": str(size)}, stream=httpx.ByteStream(AUDIO))
+            return httpx.Response(200, headers={"Content-Type": "audio/mp4", "Content-Length": str(size)}, stream=self._body(AUDIO))
         start_s, _, end_s = rng.removeprefix("bytes=").partition("-")
+        if not start_s.isdigit() or (end_s and not end_s.isdigit()):
+            # unsupported (suffix / multi) range: answer the whole file like real servers may
+            return httpx.Response(200, headers={"Content-Type": "audio/mp4", "Content-Length": str(size)}, stream=self._body(AUDIO))
         start = int(start_s)
+        if self.forbid_from_byte is not None and start >= self.forbid_from_byte:
+            return httpx.Response(403)
         if start >= size:
             return httpx.Response(416, headers={"Content-Range": f"bytes */{size}"}, stream=httpx.ByteStream(b""))
         end = min(int(end_s) if end_s else size - 1, size - 1)
@@ -133,7 +160,7 @@ class FakeGoogleVideo:
                 "Content-Range": f"bytes {start}-{end}/{size}",
                 "Set-Cookie": "upstream=secret",
             },
-            stream=httpx.ByteStream(body),
+            stream=self._body(body),
         )
 
 
@@ -144,6 +171,7 @@ def make_settings(**overrides) -> EnvSettings:
         CORS_ORIGINS="*",
         STREAM_EXPIRY_MARGIN_SECONDS=300,
         HTTP2_ENABLED=False,
+        STREAM_RETRY_DELAY_SECONDS=0,
     )
     base.update(overrides)
     return EnvSettings(_env_file=None, **base)

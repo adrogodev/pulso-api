@@ -71,4 +71,8 @@ def config_infrastructure(settings: EnvSettings):
         ),
         singleton=True,
     )
-    Container.register('audio_transport', lambda: HttpxAudioTransport(Container.resolve('http_client')), singleton=True)
+    Container.register(
+        'audio_transport',
+        lambda: HttpxAudioTransport(Container.resolve('http_client'), settings.STREAM_UPSTREAM_WINDOW_BYTES),
+        singleton=True,
+    )

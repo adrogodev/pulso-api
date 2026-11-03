@@ -96,6 +96,7 @@ async def test_songs_rejects_invalid_id(client):
 
 async def test_watch_playlist(client, ytmusic):
     resp = await client.get("/api/watch/song_vid_01", params={"limit": 2})
+    assert len(resp.json()["data"]["tracks"]) == 2
     assert resp.status_code == 200
     data = resp.json()["data"]
     assert data["playlist_id"] == "RDAMVMsong_vid_01"
@@ -148,3 +149,9 @@ async def test_docs_and_openapi_list_new_endpoints(client):
     assert paths["/api/songs"]["get"]["deprecated"] is True
     assert paths["/api/artist"]["get"]["deprecated"] is True
     assert "206" in paths["/api/stream/{video_id}"]["get"]["responses"]
+
+
+async def test_watch_limit_caps_tracks(client):
+    # ytmusicapi treats limit as a minimum and may return more tracks
+    resp = await client.get("/api/watch/song_vid_01", params={"limit": 1})
+    assert [t["id"] for t in resp.json()["data"]["tracks"]] == ["song_vid_01"]

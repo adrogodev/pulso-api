@@ -20,7 +20,10 @@ class WatchService(IWatchService):
         return GetWatchPlaylistResponse.model_validate(raw)
 
     async def get_watch_playlist(self, video_id: str, limit: int) -> WatchPlaylist:
-        return GetWatchPlaylistResponseMapper.map(video_id, await self._watch_raw(video_id, limit))
+        playlist = GetWatchPlaylistResponseMapper.map(video_id, await self._watch_raw(video_id, limit))
+        # ytmusicapi treats limit as a minimum and can return many more tracks
+        playlist.tracks = playlist.tracks[:limit]
+        return playlist
 
     async def get_lyrics(self, video_id: str) -> Lyrics:
         # Lyrics are addressed by a browse id that only the watch playlist exposes

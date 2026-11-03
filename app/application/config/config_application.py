@@ -61,7 +61,9 @@ def config_application(settings: EnvSettings):
     Container.register('get_link_songs_usecase', lambda: GetSongLinkUseCase(r('stream_links')), singleton=True)
     Container.register(
         'get_audio_stream_usecase',
-        lambda: GetAudioStreamUseCase(r('stream_resolver'), r('audio_transport')),
+        lambda: GetAudioStreamUseCase(
+            r('stream_resolver'), r('audio_transport'), settings.STREAM_RETRY_DELAY_SECONDS
+        ),
         singleton=True,
     )
     Container.register(

@@ -20,6 +20,7 @@ def download_error(message: str, cause: Exception | None = None) -> DownloadErro
             "GEO_RESTRICTED",
         ),
         (download_error("Video unavailable. This video has been removed by the uploader"), 404, "VIDEO_NOT_FOUND"),
+        (download_error("This video is unavailable"), 404, "VIDEO_NOT_FOUND"),
         (download_error("Requested format is not available. Use --list-formats"), 404, "AUDIO_FORMAT_UNAVAILABLE"),
         (download_error("Sign in to confirm you're not a bot. This helps protect our community."), 503, "UPSTREAM_BLOCKED"),
         (download_error("HTTP Error 429: Too Many Requests"), 503, "UPSTREAM_RATE_LIMITED"),

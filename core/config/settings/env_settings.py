@@ -39,7 +39,10 @@ class EnvSettings(BaseSettings):
     STREAM_FORMAT: str = "140/251/bestaudio[ext=m4a]/bestaudio"
     STREAM_EXPIRY_MARGIN_SECONDS: int = 300
     STREAM_FALLBACK_TTL_SECONDS: int = 1800
+    STREAM_RETRY_DELAY_SECONDS: float = 0.5
     STREAM_CHUNK_SIZE: int = 65536
+    # googlevideo throttles ranges above ~10 MB; upstream is read in windows of this size
+    STREAM_UPSTREAM_WINDOW_BYTES: int = 10 * 1024 * 1024
     STREAM_PREFETCH_MAX_IDS: int = 50
     YTDLP_MAX_CONCURRENCY: int = 4
     YTDLP_JS_RUNTIME: str = "deno"

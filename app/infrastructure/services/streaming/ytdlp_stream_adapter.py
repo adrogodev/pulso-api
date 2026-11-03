@@ -42,7 +42,7 @@ def map_ytdlp_error(error: Exception) -> DomainError:
         return UpstreamBlockedError("YouTube is rate limiting this server", code="UPSTREAM_RATE_LIMITED")
     if "requested format is not available" in msg:
         return NotFoundError("No audio format available for this video", code="AUDIO_FORMAT_UNAVAILABLE")
-    if any(s in msg for s in ("video unavailable", "not available", "has been removed", "does not exist", "incomplete youtube id")):
+    if any(s in msg for s in ("video unavailable", "is unavailable", "not available", "has been removed", "does not exist", "incomplete youtube id")):
         return NotFoundError("Video not found or unavailable", code="VIDEO_NOT_FOUND")
     if "timed out" in msg:
         return UpstreamTimeoutError("YouTube did not answer in time")

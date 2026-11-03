@@ -56,7 +56,9 @@ Behind a corporate proxy that inspects TLS, set `USE_SYSTEM_TRUSTSTORE=true` (an
 | `STREAM_FORMAT` | `140/251/bestaudio[ext=m4a]/bestaudio` | yt-dlp format selector: AAC (itag 140, plays in Safari) first, Opus (251) as fallback |
 | `STREAM_EXPIRY_MARGIN_SECONDS` | `300` | A resolved URL is cached until its `expire` minus this margin |
 | `STREAM_FALLBACK_TTL_SECONDS` | `1800` | Lifetime assumed when a URL has no `expire` parameter |
+| `STREAM_RETRY_DELAY_SECONDS` | `0.5` | Pause before retrying a 403 on the same URL (googlevideo sometimes rejects the first hit on a fresh URL) |
 | `STREAM_CHUNK_SIZE` | `65536` | Proxy chunk size in bytes |
+| `STREAM_UPSTREAM_WINDOW_BYTES` | `10485760` | Max bytes per upstream Range request; larger spans are read as consecutive windows (googlevideo throttles bigger ranges) |
 | `STREAM_PREFETCH_MAX_IDS` | `50` | Maximum ids per `/api/stream/prefetch` request (400 `TOO_MANY_IDS` above it) |
 | `YTDLP_MAX_CONCURRENCY` | `4` | Concurrent yt-dlp resolutions |
 | `YTDLP_JS_RUNTIME` | `deno` | `deno`, `node`, `bun` or `quickjs` |
@@ -167,8 +169,13 @@ await fetch("/api/stream/prefetch", {
 2. The URL is cached until its `expire` query parameter minus `STREAM_EXPIRY_MARGIN_SECONDS`.
 3. The proxy opens the URL on a shared pooled `httpx.AsyncClient` (HTTP/2, keep-alive), forwards
    `Range`, and streams 64 KB chunks. Client disconnects close the upstream connection.
-4. If googlevideo answers 403/410, the entry is invalidated, the id is resolved again once, and the
-   request is retried. A second refusal returns 503.
+4. Upstream is always read with bounded `Range` windows of at most `STREAM_UPSTREAM_WINDOW_BYTES`:
+   googlevideo throttles requests without `Range`, or with ranges above ~10 MB, to roughly playback
+   speed and then drops them. The windows are stitched into one response, so the client still gets a
+   single 200 (no `Range`) or 206 with the `Content-Range` of the span it asked for.
+5. A 403 is retried once on the same URL after `STREAM_RETRY_DELAY_SECONDS`, because googlevideo sometimes
+   rejects the first hit on a freshly issued URL. If it persists (or on 410), the entry is invalidated,
+   the id is resolved again once, and the request is retried the same way. A final refusal returns 503.
 
 ## Tests
 
@@ -205,6 +212,20 @@ stream info 3 ms, first audio byte 7 ms.
 
 ¹ `artist` uses the deprecated `?id=` form, which costs a redirect; `/api/artist/{id}` p50 is 39 ms.
 
+### Against real YouTube (local machine, 2026-11-03)
+
+| Measurement | Result |
+|---|---|
+| First audio byte, URL already resolved (cache hit) | 26–37 ms (first googlevideo connection after start: ~320 ms) |
+| Seek (`Range` near the end of a 28 MB file) | 0.2 s |
+| Full 28 MB file, `Range: bytes=0-` (windowed) | 3.4 s |
+| Cold resolution with yt-dlp (song never played) | 4–11 s, first one ~8 s |
+| Search, cold / cache hit | ~0.6–2 s / 3.5 ms |
+| 5 different searches in parallel | 1.8 s wall (each ~1.3 s) |
+
+Cold resolution is dominated by yt-dlp talking to YouTube; use `/api/stream/prefetch` for the
+queue so the next song is already resolved when it starts.
+
 Before, every request blocked the event loop (requests were served one at a time) and created a new
 `YTMusic` client because the DI container did not keep singletons. These numbers measure the API's own
-overhead; real YouTube latency must be measured from a network that can reach YouTube.
+overhead; see the table above for measurements against real YouTube.
