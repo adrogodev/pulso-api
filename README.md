@@ -314,20 +314,31 @@ Logs use the `pulso.*` logger names (`pulso.http`, `pulso.stream`, `pulso.ytdlp`
 ## Deployment (Docker + GitHub Actions + VPS)
 
 ```
-git push main ──> GitHub Actions: tests ──> Docker image ──> ghcr.io/adrogodev/pulso-api
-                                                                 │
-                VPS: docker compose pull && up -d  <── over SSH ──┘
-                Caddy (HTTPS) ──> api container :8000
+git push tag vX.Y.Z ──> GitHub Actions: tests ──> Docker image ──> ghcr.io/adrogodev/pulso-api:X.Y.Z + latest
+                                       │                                   │
+                                       └──> GitHub release                 │
+                      VPS: docker compose pull && up -d  <── over SSH ─────┘
+                      Caddy (HTTPS) ──> api container :8000
 ```
 
-The workflow `.github/workflows/deploy.yml` runs on every push and pull request to `main`:
+The workflow `.github/workflows/deploy.yml`:
 
 | Job | When | What |
 |---|---|---|
-| `test` | always | `uv sync --locked` and `uv run pytest` |
-| `image` | push to `main`, tag `v*.*.*`, manual run | Builds the `Dockerfile` and pushes it to GHCR as `latest` + `sha-<commit>` (tags add `X.Y.Z` and `X.Y`) |
+| `test` | push, pull request (tags also check the version) | `uv sync --locked` and `uv run pytest` |
+| `image` | push to `main` or tag `v*.*.*` | Builds the `Dockerfile` and pushes it to GHCR |
 | `release` | tag `v*.*.*` | Creates the GitHub release with generated notes |
-| `deploy` | push to `main`, only when the variable `DEPLOY_ENABLED=true` | Copies `deploy/` to the VPS and restarts the stack with the new `sha-<commit>` image |
+| `deploy` | tag `v*.*.*` or manual run, only when the variable `DEPLOY_ENABLED=true` | Copies `deploy/` to the VPS and restarts the stack with the chosen image |
+
+Image tags in `ghcr.io/adrogodev/pulso-api`:
+
+| Tag | Points to | Updated by |
+|---|---|---|
+| `latest` | The most recent release | every `v*.*.*` tag |
+| `X.Y.Z` (e.g. `0.0.1`) | That exact release, never changes | its `vX.Y.Z` tag |
+| `X.Y` (e.g. `0.0`) | Newest patch of that minor version | every `vX.Y.*` tag |
+| `main` | The latest commit on `main` (not released yet) | every push to `main` |
+| `sha-<commit>` | One exact commit | every build |
 
 The image runs a single uvicorn worker with the in-memory cache; Redis is not required. Before scaling to
 several workers or containers, set `CACHE_BACKEND=redis` and add a Redis service.
@@ -379,9 +390,23 @@ In the repository, **Settings → Secrets and variables → Actions**:
 
 The workflow logs in to GHCR with the built-in `GITHUB_TOKEN`, so the image can stay private.
 
-### 3. Deploy
+### 3. Release and deploy
 
-Push to `main` (or run the workflow manually from the **Actions** tab). Check it on the VPS:
+Pushes to `main` only test and build the `main` image. A release publishes and deploys a version:
+
+1. Update `version` in `pyproject.toml` and `app/main.py`, run `uv lock`, commit and push to `main`.
+2. Tag and push the tag:
+
+   ```bash
+   git tag -a v0.0.2 -m "v0.0.2"
+   git push origin v0.0.2
+   ```
+
+The workflow runs the tests, builds `0.0.2`, `0.0` and `latest`, creates the GitHub release with notes
+generated from the commits since the previous tag, and deploys `0.0.2`. The tag must match the `version` in
+`pyproject.toml`, otherwise nothing is published.
+
+Check it on the VPS:
 
 ```bash
 cd /opt/pulso-api
@@ -390,21 +415,21 @@ docker compose logs -f api
 curl https://api.example.com/
 ```
 
-Roll back by restarting an older image: `IMAGE_TAG=sha-<commit> docker compose up -d`.
+### Deploy a specific image
 
-### Releases
+From GitHub: **Actions → Build and deploy → Run workflow**, then type the image tag (`latest`, `0.0.1`,
+`main`, `sha-abc1234`). It works for rollbacks and for trying the unreleased `main` image.
 
-Releases are optional: deployments follow `main`. To publish a versioned image, update `version` in
-`pyproject.toml` and `app/main.py`, run `uv lock`, commit, then tag and push:
+From the VPS: the deployed tag is stored as `IMAGE_TAG` in `/opt/pulso-api/.env` (without it, `latest`).
+Change it and restart:
 
 ```bash
-git tag -a v0.0.1 -m "v0.0.1"
-git push origin v0.0.1
+cd /opt/pulso-api
+sed -i 's/^IMAGE_TAG=.*/IMAGE_TAG=0.0.1/' .env
+docker compose pull && docker compose up -d
 ```
 
-The workflow runs the tests, builds `ghcr.io/adrogodev/pulso-api:0.0.1` (and `0.0`) and creates the GitHub
-release with notes generated from the commits since the previous tag. The `release` job fails when the tag
-does not match the `version` in `pyproject.toml`.
+A private image needs `docker login ghcr.io` on the VPS first, with a GitHub token that has `read:packages`.
 
 ## Legal notice
 

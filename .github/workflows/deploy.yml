@@ -7,6 +7,11 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (latest, 0.0.1, 0.0, main, sha-xxxxxxx)"
+        required: true
+        default: latest
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -17,9 +22,18 @@ env:
 
 jobs:
   test:
+    if: github.event_name != 'workflow_dispatch'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
+      - name: Check that the tag matches the project version
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
+          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
+            echo "::error::Tag $GITHUB_REF_NAME does not match pyproject.toml version $version"
+            exit 1
+          fi
       - uses: astral-sh/setup-uv@v6
         with:
           enable-cache: true
@@ -28,7 +42,7 @@ jobs:
 
   image:
     needs: test
-    if: github.event_name != 'pull_request'
+    if: github.event_name == 'push'
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -45,12 +59,14 @@ jobs:
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE }}
-          # main -> latest + sha-xxxxxxx; tag v1.2.3 -> 1.2.3, 1.2 + sha-xxxxxxx
+          # tag v1.2.3 -> 1.2.3, 1.2, latest, sha-xxxxxxx; push to main -> main, sha-xxxxxxx
+          flavor: latest=false
           tags: |
-            type=raw,value=latest,enable={{is_default_branch}}
-            type=sha,prefix=sha-,format=short
             type=semver,pattern={{version}}
             type=semver,pattern={{major}}.{{minor}}
+            type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
+            type=ref,event=branch
+            type=sha,prefix=sha-,format=short
       - uses: docker/build-push-action@v6
         with:
           context: .
@@ -68,13 +84,6 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
-      - name: Check that the tag matches the project version
-        run: |
-          version=$(sed -n 's/^version = "\(.*\)"/\1/p' pyproject.toml)
-          if [ "v$version" != "$GITHUB_REF_NAME" ]; then
-            echo "::error::Tag $GITHUB_REF_NAME does not match pyproject.toml version $version"
-            exit 1
-          fi
       - name: Create the GitHub release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -83,8 +92,13 @@ jobs:
 
   deploy:
     needs: image
+    # Releases deploy their version; a manual run deploys any existing tag.
     # Turn on with the repository variable DEPLOY_ENABLED=true once the VPS is ready.
-    if: github.ref == 'refs/heads/main' && vars.DEPLOY_ENABLED == 'true'
+    if: >-
+      always() && vars.DEPLOY_ENABLED == 'true' && (
+        github.event_name == 'workflow_dispatch' ||
+        (startsWith(github.ref, 'refs/tags/v') && needs.image.result == 'success')
+      )
     runs-on: ubuntu-latest
     environment: production
     permissions:
@@ -97,6 +111,16 @@ jobs:
       DEPLOY_DIR: /opt/pulso-api
     steps:
       - uses: actions/checkout@v5
+      - name: Resolve the image tag
+        env:
+          INPUT_TAG: ${{ inputs.image_tag }}
+        run: |
+          if [ "$GITHUB_EVENT_NAME" = "workflow_dispatch" ]; then tag="$INPUT_TAG"; else tag="${GITHUB_REF_NAME#v}"; fi
+          if ! printf '%s' "$tag" | grep -Eq '^[A-Za-z0-9][A-Za-z0-9._-]{0,127}$'; then
+            echo "::error::Invalid image tag: $tag"
+            exit 1
+          fi
+          echo "IMAGE_TAG=$tag" >> "$GITHUB_ENV"
       - name: Configure SSH
         env:
           SSH_KEY: ${{ secrets.VPS_SSH_KEY }}
@@ -114,14 +138,16 @@ jobs:
         env:
           REGISTRY_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          tag="sha-${GITHUB_SHA::7}"
           printf '%s\n' "$REGISTRY_TOKEN" | ssh -i ~/.ssh/id_deploy -p "$SSH_PORT" -o StrictHostKeyChecking=yes \
             "$SSH_USER@$SSH_HOST" "
               set -e
               cd $DEPLOY_DIR
+              # Persist the deployed tag so restarts and manual 'docker compose up' keep it
+              sed -i -e '/^IMAGE_TAG=/d' -e '\$a\\' .env
+              echo 'IMAGE_TAG=$IMAGE_TAG' >> .env
               docker login ghcr.io -u ${{ github.actor }} --password-stdin
-              IMAGE_TAG=$tag docker compose pull
-              IMAGE_TAG=$tag docker compose up -d --remove-orphans
+              docker compose pull
+              docker compose up -d --remove-orphans
               docker logout ghcr.io
               docker image prune -f
             "
