@@ -20,6 +20,7 @@ class FakeYTMusic:
         self.errors: Dict[str, Exception] = {}
         self.lyrics_payload: Optional[dict] = ytmusic_data.lyrics()
         self.watch_payload = ytmusic_data.watch_playlist()
+        self.search_payload = ytmusic_data.search_results()
         self._lock = threading.Lock()
 
     def _call(self, name: str, payload: Callable[[], Any], *args, **kwargs):
@@ -35,7 +36,7 @@ class FakeYTMusic:
         return sum(1 for c in self.calls if c[0] == name)
 
     def search(self, query, filter=None, scope=None, limit=20, ignore_spelling=False):
-        return self._call("search", ytmusic_data.search_results, query=query, filter=filter, limit=limit)
+        return self._call("search", lambda: list(self.search_payload), query=query, filter=filter, limit=limit)
 
     def get_search_suggestions(self, query, detailed_runs=False):
         return self._call("get_search_suggestions", ytmusic_data.suggestions, query)
@@ -61,10 +62,12 @@ class FakeYdl:
         self.latency = 0.0
         self.error: Optional[Exception] = None
         self.expire_in = 6 * 3600
+        self.last_params: Optional[dict] = None
         self._lock = threading.Lock()
 
     def factory(self, params: dict):
         fake = self
+        self.last_params = params
 
         class _Ydl:
             def __init__(self):

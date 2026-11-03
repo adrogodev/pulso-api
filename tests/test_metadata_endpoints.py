@@ -47,6 +47,15 @@ async def test_search_filter_and_limit_reach_ytmusic(client, ytmusic):
     assert ytmusic.calls[0][2] == {"query": "x", "filter": "videos", "limit": 5}
 
 
+async def test_search_returns_at_most_limit_items_per_category(client, ytmusic):
+    # ytmusicapi treats limit as a minimum and usually returns ~20 items
+    song = next(i for i in ytmusic.search_payload if i["resultType"] == "song")
+    ytmusic.search_payload = [{**song, "videoId": f"song_vid_{n:02d}"} for n in range(20)]
+    resp = await client.get("/api/search", params={"query": "x", "filter": "songs", "limit": 2})
+    assert resp.status_code == 200
+    assert [s["id"] for s in resp.json()["data"]["songs"]] == ["song_vid_00", "song_vid_01"]
+
+
 async def test_search_validation_uses_error_envelope(client):
     resp = await client.get("/api/search", params={"query": "x", "filter": "podcasts"})
     assert resp.status_code == 422

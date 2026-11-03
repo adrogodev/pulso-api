@@ -16,7 +16,13 @@ class SearchService(ISearchService):
         raw = await self._gateway.call(
             "search", query=query, filter=category.value if category else None, limit=limit
         )
-        return SearchResponseMapper.map([SearchResponse.model_validate(item) for item in raw])
+        result = SearchResponseMapper.map([SearchResponse.model_validate(item) for item in raw])
+        # ytmusicapi treats limit as a minimum and usually returns ~20 items per category
+        result.artists = result.artists[:limit]
+        result.songs = result.songs[:limit]
+        result.videos = result.videos[:limit]
+        result.albums = result.albums[:limit]
+        return result
 
     async def suggestions(self, query: str) -> list[str]:
         raw = await self._gateway.call("get_search_suggestions", query)
