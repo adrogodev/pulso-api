@@ -5,6 +5,7 @@
 .env
 .env.*
 !.env.example
+*cookies*.txt
 **/__pycache__
 **/*.pyc
 .pytest_cache

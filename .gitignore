@@ -2,6 +2,8 @@ __pycache__/
 *.pyc
 .venv/
 .env
+# YouTube cookies are account credentials
+*cookies*.txt
 .DS_Store
 .vscode/
 *.log
