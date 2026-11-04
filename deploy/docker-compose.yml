@@ -11,6 +11,10 @@ services:
     environment:
       # Caddy is the only client of the container, so X-Forwarded-For carries the real IP.
       TRUST_PROXY_HEADERS: "true"
+    # YouTube cookies (see "YouTube bot check on servers" in the README). Uncomment only once the file
+    # exists: Docker creates a directory in its place when it is missing.
+    # volumes:
+    #   - ./youtube-cookies.txt:/run/secrets/youtube-cookies.txt:ro
     restart: unless-stopped
     expose:
       - "8000"
