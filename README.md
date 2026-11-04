@@ -93,6 +93,10 @@ Behind a corporate proxy that inspects TLS, set `USE_SYSTEM_TRUSTSTORE=true` (an
 
 ## Environment variables
 
+`.env.example` lists every variable, grouped and commented, with the defaults below. Copy it to `.env`
+(local) or paste it into the environment of your deployment (for example Dokploy → **Environment**) and change
+at least `PUBLIC_BASE_URL` and `CORS_ORIGINS`. `.env` is git-ignored; never commit real values.
+
 | Variable | Default | Purpose |
 |---|---|---|
 | `PUBLIC_BASE_URL` | `http://localhost:8000` | Base of every `stream_url` returned by the API |
@@ -118,9 +122,9 @@ Behind a corporate proxy that inspects TLS, set `USE_SYSTEM_TRUSTSTORE=true` (an
 | `STREAM_BLOCKED_COOLDOWN_SECONDS` | `60` | After a bot check or rate limit, stream requests fail fast with 503 for this long instead of asking YouTube again (0 disables) |
 | `YTDLP_MAX_CONCURRENCY` | `4` | Concurrent yt-dlp resolutions |
 | `YTDLP_JS_RUNTIME` | `deno` | `deno`, `node`, `bun` or `quickjs` |
-| `YTDLP_COOKIES_FILE` | empty | Path to a Netscape `cookies.txt` of a YouTube account (see [YouTube bot check on servers](#youtube-bot-check-on-servers)) |
+| `YTDLP_COOKIES_FILE` | empty | Path inside the container to a Netscape `cookies.txt` of a YouTube account, e.g. `/run/secrets/youtube-cookies.txt` (see [Setting up the cookies](#setting-up-the-cookies)) |
 | `YTDLP_PROXY` | empty | Proxy URL for yt-dlp and for the audio proxy, e.g. `http://user:pass@host:port` |
-| `YTDLP_EXTRACTOR_ARGS` | empty | yt-dlp `--extractor-args` groups separated by spaces, e.g. `youtube:player_client=tv,web_safari` |
+| `YTDLP_EXTRACTOR_ARGS` | empty | yt-dlp `--extractor-args` groups separated by spaces, e.g. `youtube:player_client=tv,web_safari,mweb`. Leave it empty when using cookies |
 | `HTTP_CONNECT_TIMEOUT` / `HTTP_READ_TIMEOUT` | `5` / `30` | Upstream audio timeouts (seconds) |
 | `HTTP_MAX_CONNECTIONS` / `HTTP_MAX_KEEPALIVE` / `HTTP_KEEPALIVE_EXPIRY` | `100` / `20` / `30` | Upstream connection pool |
 | `HTTP2_ENABLED` | `true` | HTTP/2 towards googlevideo |
@@ -426,32 +430,69 @@ From a datacenter IP (any VPS), YouTube often answers yt-dlp with "Sign in to co
 The API then returns `503 UPSTREAM_BLOCKED` on `/api/stream/*` while search keeps working. It does not
 happen from a residential IP. Options, from simplest:
 
-1. **Cookies of a YouTube account** (`YTDLP_COOKIES_FILE`). Use a secondary account: it can be flagged.
-   - In a private browser window, sign in to youtube.com, export the cookies of that window in Netscape
-     format (for example with the "Get cookies.txt LOCALLY" extension) and close the window without signing
-     out. Closing it keeps YouTube from rotating the exported cookies.
-   - Mount the file read-only into the container and point `YTDLP_COOKIES_FILE` to it. Never commit it.
-   - Every extraction uses a private copy, so a read-only mount works. Cookies last weeks to months; when
-     `UPSTREAM_BLOCKED` comes back, export them again.
-2. **Another player client** (`YTDLP_EXTRACTOR_ARGS=youtube:player_client=tv,web_safari`). Free, but it may
-   stop working whenever YouTube changes its checks.
-3. **A residential proxy** (`YTDLP_PROXY`). The audio proxy uses it too, because googlevideo URLs only work
+1. **Cookies of a YouTube account** (`YTDLP_COOKIES_FILE`). Recommended: it is the option that works from a
+   VPS. Use a secondary account, because it can be flagged.
+2. **A residential proxy** (`YTDLP_PROXY`). The audio proxy uses it too, because googlevideo URLs only work
    from the IP that resolved them. Paid, and every streamed byte goes through it.
+3. **Another player client** (`YTDLP_EXTRACTOR_ARGS=youtube:player_client=tv,web_safari,mweb`). Free, but on
+   its own it is usually not enough from a datacenter IP.
 
-With a Dokploy compose service: **Advanced → Mounts → File Mount**, paste the content of `cookies.txt` with
-the file path `youtube-cookies.txt` (Dokploy stores it in `../files/`), mount it in the compose and set the
-variable in **Environment**, then redeploy:
+### Setting up the cookies
 
-```yaml
-services:
-  api:
-    volumes:
-      - ../files/youtube-cookies.txt:/run/secrets/youtube-cookies.txt:ro
-```
+**1. Export them** (the file is a credential of the account: never commit it or share it)
+
+1. Install the **Get cookies.txt LOCALLY** extension (Chrome, Brave, Edge or Firefox).
+2. Open a **private window**, allow the extension there and sign in to youtube.com with the secondary account.
+3. In the same tab open `https://www.youtube.com/robots.txt`.
+4. Export with **Export** (current site only), in Netscape format. Do not use "Export All Cookies": that
+   file would also carry the sessions of every other site you are signed in to. The file should only have
+   `.youtube.com` / `.google.com` lines and starts with `# Netscape HTTP Cookie File`.
+5. Close the private window **without signing out**. Signing out invalidates the exported cookies.
+
+**2. Give them to the container** (read-only; every extraction works on a private copy)
+
+- **Dokploy (compose service)**
+  1. If the logs ever showed `is a directory`, remove that directory on the VPS first:
+     `rmdir /etc/dokploy/compose/<app-name>/files/youtube-cookies.txt`.
+  2. **Advanced → Volumes → Add Volume → File Mount**: paste the file in **Content** and set
+     **File Path** to `youtube-cookies.txt`. Dokploy stores it in `../files/`.
+  3. Mount it in the compose (**General → Compose**):
+
+     ```yaml
+     services:
+       api:
+         volumes:
+           - ../files/youtube-cookies.txt:/run/secrets/youtube-cookies.txt:ro
+     ```
+
+- **`deploy/docker-compose.yml`**: save the file as `/opt/pulso-api/youtube-cookies.txt` (`chmod 644`) and
+  uncomment the `volumes` lines of the `api` service.
+- **Plain Docker**:
+
+  ```bash
+  docker run ... -v /opt/pulso-api/youtube-cookies.txt:/run/secrets/youtube-cookies.txt:ro \
+    -e YTDLP_COOKIES_FILE=/run/secrets/youtube-cookies.txt ghcr.io/adrogodev/pulso-api:latest
+  ```
+
+**3. Point the API to them** and redeploy. Leave `YTDLP_EXTRACTOR_ARGS` empty so yt-dlp picks the player
+clients that work with an account:
 
 ```dotenv
 YTDLP_COOKIES_FILE=/run/secrets/youtube-cookies.txt
+YTDLP_EXTRACTOR_ARGS=
 ```
+
+**4. Check it**: the startup log has no `ERROR pulso.ytdlp` line and a stream answers `206`:
+
+```bash
+curl -s -o /dev/null -w "%{http_code}\n" -H "Range: bytes=0-1023" https://<host>/api/stream/dQw4w9WgXcQ
+```
+
+The first play of a song takes longer (around 10 to 30 s on a VPS) while yt-dlp resolves it; after that the
+URL is cached and responds in about a second. Use `/api/stream/prefetch` to resolve the next songs ahead.
+
+**5. Renew them** when streams answer `503 UPSTREAM_BLOCKED` again (cookies last weeks to months): export
+them again, replace the File Mount content (or the file) and redeploy.
 
 If the file cannot be used, the API still starts (search keeps working), logs one `ERROR pulso.ytdlp` line at
 startup with the cause, and every stream answers `503 COOKIES_UNAVAILABLE`:
@@ -461,13 +502,6 @@ startup with the cause, and every stream answers `503 COOKIES_UNAVAILABLE`:
 | `YTDLP_COOKIES_FILE does not exist` | The volume line is missing in the compose, or the path differs from `YTDLP_COOKIES_FILE` |
 | `YTDLP_COOKIES_FILE is a directory, not a file` | The File Mount does not exist under that name, so Docker created a directory: create it as `youtube-cookies.txt` and redeploy |
 | `YTDLP_COOKIES_FILE cannot be read (Permission denied)` | The container runs as uid 10001: make the file readable (`chmod 644`) |
-
-With plain Docker:
-
-```bash
-docker run ... -v /opt/pulso-api/cookies.txt:/run/secrets/youtube-cookies.txt:ro \
-  -e YTDLP_COOKIES_FILE=/run/secrets/youtube-cookies.txt ghcr.io/adrogodev/pulso-api:latest
-```
 
 ## Legal notice
 
